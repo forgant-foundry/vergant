@@ -32,7 +32,8 @@ func (t *VersioningTool) NewVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	last, err := strategy.NewAcquireLastVersion(t.git).Resolve(b)
+	acquire := strategy.NewAcquireLastVersion(t.git).Resolve(b)
+	last, err := acquire()
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,8 @@ func (t *VersioningTool) NewVersion() (*version.Version, error) {
 			return nil, err
 		}
 	}
-	return strategy.NewNewVersionCalculator(t.config).Resolve(b, last, lastRelease)
+	calculate := strategy.NewNewVersionCalculator(t.config).Resolve(b, lastRelease)
+	return calculate(last)
 }
 
 // LastVersion returns the most recent release or candidate version, or nil.
@@ -56,7 +58,7 @@ func (t *VersioningTool) LastVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	return strategy.NewAcquireLastVersion(t.git).Resolve(b)
+	return strategy.NewAcquireLastVersion(t.git).Resolve(b)()
 }
 
 // LastRelease returns the most recent release version, or nil.

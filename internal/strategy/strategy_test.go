@@ -97,7 +97,7 @@ func TestNewVersionCalculator(t *testing.T) {
 				lastRelease = v
 			}
 			calc := strategy.NewNewVersionCalculator(tt.cfg)
-			got, err := calc.Resolve(tt.b, last, lastRelease)
+			got, err := calc.Resolve(tt.b, lastRelease)(last)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -175,7 +175,7 @@ func TestAcquireLastVersion(t *testing.T) {
 				}
 			}
 
-			v, err := strategy.NewAcquireLastVersion(tt.stub).Resolve(tt.b)
+			v, err := strategy.NewAcquireLastVersion(tt.stub).Resolve(tt.b)()
 			if err != nil {
 				t.Fatal(err)
 			}
