@@ -12,8 +12,8 @@ import (
 // Acquire retrieves the relevant last version for a branch.
 type Acquire func() (*version.Version, error)
 
-// Calculate computes the next version given the last known version for the branch.
-type Calculate func(last *version.Version) (*version.Version, error)
+// Calculate computes the next version given the last known version and last release for the branch.
+type Calculate func(last *version.Version, lastRelease *version.Version) (*version.Version, error)
 
 // AcquireLastVersion fetches the last known version from git tags.
 type AcquireLastVersion struct {
@@ -69,25 +69,24 @@ func (c *NewVersionCalculator) defaultCategory() version.Category {
 }
 
 // Resolve returns a Calculate function appropriate for b.
-// lastRelease is captured in the closure for Dev and Patch branches.
-func (c *NewVersionCalculator) Resolve(b *branch.Branch, lastRelease *version.Version) Calculate {
+func (c *NewVersionCalculator) Resolve(b *branch.Branch) Calculate {
 	switch b.Category {
 	case branch.Default:
 		return c.onDefault
 	case branch.Support:
 		return c.onSupport
 	case branch.Dev:
-		return c.onDev(b, lastRelease)
+		return c.onDev(b)
 	case branch.Patch:
-		return c.onPatch(b, lastRelease)
+		return c.onPatch(b)
 	default:
-		return func(_ *version.Version) (*version.Version, error) {
+		return func(_ *version.Version, _ *version.Version) (*version.Version, error) {
 			return nil, fmt.Errorf("unsupported branch category")
 		}
 	}
 }
 
-func (c *NewVersionCalculator) onDefault(last *version.Version) (*version.Version, error) {
+func (c *NewVersionCalculator) onDefault(last *version.Version, _ *version.Version) (*version.Version, error) {
 	cat := c.defaultCategory()
 	if last == nil || last.Major() < c.config.MajorVersion {
 		return version.NewMajor(c.config.MajorVersion, cat), nil
@@ -99,15 +98,15 @@ func (c *NewVersionCalculator) onDefault(last *version.Version) (*version.Versio
 	return last.IncrementMinor(cat), nil
 }
 
-func (c *NewVersionCalculator) onSupport(last *version.Version) (*version.Version, error) {
+func (c *NewVersionCalculator) onSupport(last *version.Version, _ *version.Version) (*version.Version, error) {
 	if last == nil {
 		return nil, fmt.Errorf("on a support branch, previous version not acquired from tags")
 	}
 	return last.IncrementPatch(c.defaultCategory()), nil
 }
 
-func (c *NewVersionCalculator) onDev(b *branch.Branch, lastRelease *version.Version) Calculate {
-	return func(lastDev *version.Version) (*version.Version, error) {
+func (c *NewVersionCalculator) onDev(b *branch.Branch) Calculate {
+	return func(lastDev *version.Version, lastRelease *version.Version) (*version.Version, error) {
 		target, err := c.minorTarget(lastRelease)
 		if err != nil {
 			return nil, err
@@ -119,8 +118,8 @@ func (c *NewVersionCalculator) onDev(b *branch.Branch, lastRelease *version.Vers
 	}
 }
 
-func (c *NewVersionCalculator) onPatch(b *branch.Branch, lastRelease *version.Version) Calculate {
-	return func(lastDev *version.Version) (*version.Version, error) {
+func (c *NewVersionCalculator) onPatch(b *branch.Branch) Calculate {
+	return func(lastDev *version.Version, lastRelease *version.Version) (*version.Version, error) {
 		target, err := c.patchTarget(lastRelease)
 		if err != nil {
 			return nil, err
