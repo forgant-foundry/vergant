@@ -234,11 +234,9 @@ result:   r1.5.0
 
 ## GitHub Actions
 
-vergant is a CLI, which makes CI integration a thin wrapper: install the tool, run it. Two workflows cover the full release lifecycle.
+vergant is a CLI, which makes CI integration a thin wrapper: install the tool, run it. A single workflow covers the full lifecycle — versioning on every branch push, and release when the result is an `r*` tag.
 
-### Versioning workflow
-
-Runs on every branch push. vergant reads the branch name, queries reachable tags, calculates the next version, and pushes the tag. No configuration beyond the workflow file is required — vergant reads `vergant.config.json` from the repo root.
+A single workflow is required because GitHub Actions will not trigger a second workflow from a tag pushed by `GITHUB_TOKEN`. The release steps run as conditional steps in the same job, not as a separate workflow triggered by the tag.
 
 `fetch-depth: 0` is required. Without full commit history, `git tag --list --merged` cannot correctly scope tags to branch ancestry, which is the mechanism that makes parallel branch isolation work.
 
@@ -274,48 +272,21 @@ jobs:
           git config user.name "github-actions[bot]"
 
       - name: Apply version
-        run: vergant new
-```
+        id: version
+        run: echo "tag=$(vergant new)" >> $GITHUB_OUTPUT
 
-The `branches: ['**']` trigger fires on branch pushes only — GitHub Actions excludes tag pushes from this filter, preventing a loop where vergant's tag triggers another version.
-
-`permissions: contents: write` authorises `GITHUB_TOKEN` to push tags. No additional secrets or tokens are required.
-
-### Release workflow
-
-Runs when an `r*` tag is pushed — which is exactly what the versioning workflow produces for release-mode projects. It builds binaries for all target platforms and creates a GitHub Release with auto-generated notes.
-
-```yaml
-# .github/workflows/release.yml
-name: release
-
-on:
-  push:
-    tags:
-      - 'r*'
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Build
+      - name: Build release binaries
+        if: startsWith(steps.version.outputs.tag, 'r')
         run: |
           GOOS=linux   GOARCH=amd64 go build -o dist/vergant-linux-amd64        ./cmd/vergant
           GOOS=darwin  GOARCH=amd64 go build -o dist/vergant-darwin-amd64       ./cmd/vergant
           GOOS=darwin  GOARCH=arm64 go build -o dist/vergant-darwin-arm64       ./cmd/vergant
           GOOS=windows GOARCH=amd64 go build -o dist/vergant-windows-amd64.exe  ./cmd/vergant
 
-      - name: Release
+      - name: Create release
+        if: startsWith(steps.version.outputs.tag, 'r')
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.tag }}"
           gh release create "$VERSION" \
             --title "${VERSION#r}" \
             --generate-notes \
@@ -324,7 +295,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The two workflows share a clean handoff: the version workflow pushes `r1.0.0`, which triggers the release workflow. The tag is both vergant's version record and GitHub's release trigger.
+The `branches: ['**']` trigger fires on branch pushes only — GitHub Actions excludes tag pushes from this filter, preventing a loop where vergant's tag triggers another version run.
+
+`permissions: contents: write` authorises `GITHUB_TOKEN` to push tags and create releases. No additional secrets or tokens are required.
 
 ## Protecting Tags
 
