@@ -111,7 +111,7 @@ func (c *NewVersionCalculator) onDev(b *branch.Branch) Calculate {
 		if err != nil {
 			return nil, err
 		}
-		if lastDev != nil && sameBase(lastDev, target) {
+		if lastDev != nil && lastDev.EqualBase(target) {
 			return lastDev.IncrementPreRelease(), nil
 		}
 		return version.NewPreRelease(target, b.BuildTicket), nil
@@ -124,7 +124,7 @@ func (c *NewVersionCalculator) onPatch(b *branch.Branch) Calculate {
 		if err != nil {
 			return nil, err
 		}
-		if lastDev != nil && sameBase(lastDev, target) {
+		if lastDev != nil && lastDev.EqualBase(target) {
 			return lastDev.IncrementPreRelease(), nil
 		}
 		return version.NewPreRelease(target, b.BuildTicket), nil
@@ -149,6 +149,3 @@ func (c *NewVersionCalculator) patchTarget(lastRelease *version.Version) (*versi
 	return lastRelease.IncrementPatch(version.Release), nil
 }
 
-func sameBase(v, target *version.Version) bool {
-	return v.Major() == target.Major() && v.Minor() == target.Minor() && v.Patch() == target.Patch()
-}

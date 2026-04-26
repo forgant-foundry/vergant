@@ -92,6 +92,11 @@ func (v *Version) PreReleaseTicket() []string {
 	return v.pre[:len(v.pre)-1]
 }
 
+// EqualBase reports whether v and other share the same major.minor.patch, ignoring pre-release and category.
+func (v *Version) EqualBase(other *Version) bool {
+	return v.major == other.major && v.minor == other.minor && v.patch == other.patch
+}
+
 // WithCategory returns the version with a different category, numbers unchanged.
 func (v *Version) WithCategory(cat Category) *Version {
 	n := *v
