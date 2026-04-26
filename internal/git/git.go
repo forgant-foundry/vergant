@@ -26,8 +26,8 @@ type Git struct {
 	dir string
 }
 
-// New returns a Git client rooted at dir.
-func New(dir string) *Git {
+// NewGitRepository returns a Git client rooted at dir.
+func NewGitRepository(dir string) *Git {
 	return &Git{dir: dir}
 }
 

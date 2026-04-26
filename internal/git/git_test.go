@@ -13,7 +13,7 @@ func TestLastVersionNoTags(t *testing.T) {
 	r := testutil.NewRepo(t)
 	r.Commit()
 
-	tag, err := git.New(r.Dir).LastVersion()
+	tag, err := git.NewGitRepository(r.Dir).LastVersion()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestLastVersionAndRelease(t *testing.T) {
 	r.TaggedCommit("r1.1.0")
 	r.TaggedCommit("c1.2.0")
 
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 	if got, _ := g.LastVersion(); got != "c1.2.0" {
 		t.Errorf("LastVersion: got %q, want c1.2.0", got)
 	}
@@ -43,7 +43,7 @@ func TestLastVersionForDevelopment(t *testing.T) {
 	r.TaggedCommit("r1.2.0")
 	r.TaggedCommit("c1.3.0")
 
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 
 	// no dev tag yet — returns empty string
 	if got, _ := g.LastVersionForDevelopment("acme.123"); got != "" {
@@ -61,7 +61,7 @@ func TestCurrentBranch(t *testing.T) {
 	r := testutil.NewRepo(t)
 	r.Commit()
 
-	if got, err := git.New(r.Dir).CurrentBranch(); err != nil || got != "main" {
+	if got, err := git.NewGitRepository(r.Dir).CurrentBranch(); err != nil || got != "main" {
 		t.Errorf("CurrentBranch: got %q, err %v", got, err)
 	}
 }
@@ -71,7 +71,7 @@ func TestCurrentTags(t *testing.T) {
 	r.TaggedCommit("r1.0.0")
 	r.TaggedCommit("c1.1.0")
 
-	tags, err := git.New(r.Dir).CurrentTags()
+	tags, err := git.NewGitRepository(r.Dir).CurrentTags()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestListTagsOrdering(t *testing.T) {
 	r.TaggedCommit("c1.1.0")
 	r.TaggedCommit("r1.1.0")
 
-	got, err := git.New(r.Dir).ListTags()
+	got, err := git.NewGitRepository(r.Dir).ListTags()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestListTagsOrdering(t *testing.T) {
 }
 
 func TestNotAGitRepository(t *testing.T) {
-	if _, err := git.New(t.TempDir()).LastVersion(); err == nil {
+	if _, err := git.NewGitRepository(t.TempDir()).LastVersion(); err == nil {
 		t.Fatal("expected error for non-git directory")
 	}
 }
@@ -117,7 +117,7 @@ func TestReachability_AncestorTagsVisible(t *testing.T) {
 	r.Branch("feature/acme-1")
 	r.Commit()
 
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 	if got, _ := g.LastVersion(); got != "c1.1.0" {
 		t.Errorf("dev branch should see pre-branch ancestor tags: got %q, want c1.1.0", got)
 	}
@@ -137,7 +137,7 @@ func TestReachability_DevBranchIsolatedFromPostBranchMainTags(t *testing.T) {
 	r.TaggedCommit("r1.1.0")
 
 	r.Checkout("feature/acme-1")
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 	if got, _ := g.LastVersion(); got != "r1.0.0" {
 		t.Errorf("dev branch should not see post-branch main tag: got %q, want r1.0.0", got)
 	}
@@ -156,7 +156,7 @@ func TestReachability_ParallelDevBranchesIsolated(t *testing.T) {
 	r.Branch("feature/acme-2")
 	r.TaggedCommit("d1.1.0-acme.2.0")
 
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 
 	// acme-2 cannot see acme-1's dev tag
 	if got, _ := g.LastVersionForDevelopment("acme.1"); got == "d1.1.0-acme.1.0" {
@@ -188,7 +188,7 @@ func TestReachability_PatchBranchIsolatedFromNewerMainTags(t *testing.T) {
 	r.TaggedCommit("r1.3.0")
 
 	r.Checkout("support/1.1.0")
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 	if got, _ := g.LastRelease(); got != "r1.1.1" {
 		t.Errorf("patch branch should not see post-branch main releases: got %q, want r1.1.1", got)
 	}
@@ -206,7 +206,7 @@ func TestReachability_PatchTagNotVisibleFromMain(t *testing.T) {
 	r.Tag("r1.1.1")
 
 	r.Checkout("main")
-	g := git.New(r.Dir)
+	g := git.NewGitRepository(r.Dir)
 	if got, _ := g.LastRelease(); got != "r1.1.0" {
 		t.Errorf("main should not see unmerged patch tag: got %q, want r1.1.0", got)
 	}

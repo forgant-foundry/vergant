@@ -33,7 +33,7 @@ func ForName(cfg *config.Config, name string) (*Branch, error) {
 
 	patchRe, err := regexp.Compile(cfg.SupportBranchRegEx)
 	if err != nil {
-		return nil, fmt.Errorf("invalid patchBranchRegEx: %w", err)
+		return nil, fmt.Errorf("invalid SupportBranchRegEx: %w", err)
 	}
 	if patchRe.MatchString(name) {
 		return &Branch{Category: Support, Name: name}, nil
@@ -41,7 +41,7 @@ func ForName(cfg *config.Config, name string) (*Branch, error) {
 
 	devRe, err := regexp.Compile(cfg.DevBranchRegEx)
 	if err != nil {
-		return nil, fmt.Errorf("invalid devBranchRegEx: %w", err)
+		return nil, fmt.Errorf("invalid DevBranchRegEx: %w", err)
 	}
 	if m := devRe.FindStringSubmatch(name); m != nil {
 		return &Branch{Category: Dev, Name: name, BuildTicket: coerce(m[1])}, nil
@@ -49,7 +49,7 @@ func ForName(cfg *config.Config, name string) (*Branch, error) {
 
 	patchDevRe, err := regexp.Compile(cfg.PatchBranchRegEx)
 	if err != nil {
-		return nil, fmt.Errorf("invalid patchDevBranchRegEx: %w", err)
+		return nil, fmt.Errorf("invalid PatchBranchRegEx: %w", err)
 	}
 	if m := patchDevRe.FindStringSubmatch(name); m != nil {
 		return &Branch{Category: Patch, Name: name, BuildTicket: coerce(m[1])}, nil

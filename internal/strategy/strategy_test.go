@@ -24,10 +24,10 @@ func TestNewVersionCalculator(t *testing.T) {
 		Mode:          config.CandidateToRelease,
 	}
 
-	mainBranch     := &branch.Branch{Category: branch.Default, Name: "main"}
-	supportBranch  := &branch.Branch{Category: branch.Support, Name: "support/2.1.0"}
-	devBranch      := &branch.Branch{Category: branch.Dev, Name: "dev/acme-123", BuildTicket: "acme.123"}
-	patchDevBranch := &branch.Branch{Category: branch.Patch, Name: "patch/acme-456", BuildTicket: "acme.456"}
+	mainBranch := &branch.Branch{Category: branch.Default, Name: "main"}
+	supportBranch := &branch.Branch{Category: branch.Support, Name: "support/2.1.0"}
+	devBranch := &branch.Branch{Category: branch.Dev, Name: "dev/acme-123", BuildTicket: "acme.123"}
+	patchBranch := &branch.Branch{Category: branch.Patch, Name: "patch/acme-456", BuildTicket: "acme.456"}
 
 	tests := []struct {
 		name        string
@@ -69,13 +69,13 @@ func TestNewVersionCalculator(t *testing.T) {
 
 		// Scenario 4: patch/* branch — pre-release targeting next patch
 		// No prior release: error (nothing to patch)
-		{"patchdev: no prior release", releaseCfg, patchDevBranch, "", "", "", true},
+		{"patch: no prior release", releaseCfg, patchBranch, "", "", "", true},
 		// Normal case: pre-release of next patch
-		{"patchdev: first pre-release", releaseCfg, patchDevBranch, "", "r2.1.0", "d2.1.1-acme.456.0", false},
+		{"patch: first pre-release", releaseCfg, patchBranch, "", "r2.1.0", "d2.1.1-acme.456.0", false},
 		// Existing pre-release matches target: increment counter
-		{"patchdev: increment counter", releaseCfg, patchDevBranch, "d2.1.1-acme.456.1", "r2.1.0", "d2.1.1-acme.456.2", false},
+		{"patch: increment counter", releaseCfg, patchBranch, "d2.1.1-acme.456.1", "r2.1.0", "d2.1.1-acme.456.2", false},
 		// Existing pre-release base differs from target: reset counter
-		{"patchdev: target changes", releaseCfg, patchDevBranch, "d2.0.1-acme.456.3", "r2.1.0", "d2.1.1-acme.456.0", false},
+		{"patch: target changes", releaseCfg, patchBranch, "d2.0.1-acme.456.3", "r2.0.1", "d2.0.2-acme.456.0", false},
 	}
 
 	for _, tt := range tests {

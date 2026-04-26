@@ -62,17 +62,17 @@ func (c *NewVersionCalculator) defaultCategory() version.Category {
 }
 
 // Resolve calculates the next version for b given the last known version.
-// lastRelease is used only by Dev and PatchDev branches to determine the target version.
+// lastRelease is used only by Dev and Patch branches to determine the target version.
 func (c *NewVersionCalculator) Resolve(b *branch.Branch, last *version.Version, lastRelease *version.Version) (*version.Version, error) {
 	switch b.Category {
 	case branch.Default:
 		return c.onDefault(last)
 	case branch.Support:
-		return c.onPatch(last)
+		return c.onSupport(last)
 	case branch.Dev:
 		return c.onDev(b, last, lastRelease)
 	case branch.Patch:
-		return c.onPatchDev(b, last, lastRelease)
+		return c.onPatch(b, last, lastRelease)
 	default:
 		return nil, fmt.Errorf("unsupported branch category")
 	}
@@ -90,9 +90,9 @@ func (c *NewVersionCalculator) onDefault(last *version.Version) (*version.Versio
 	return last.IncrementMinor(cat), nil
 }
 
-func (c *NewVersionCalculator) onPatch(last *version.Version) (*version.Version, error) {
+func (c *NewVersionCalculator) onSupport(last *version.Version) (*version.Version, error) {
 	if last == nil {
-		return nil, fmt.Errorf("on a patch branch, previous version not acquired from tags")
+		return nil, fmt.Errorf("on a support branch, previous version not acquired from tags")
 	}
 	return last.IncrementPatch(c.defaultCategory()), nil
 }
@@ -109,8 +109,8 @@ func (c *NewVersionCalculator) onDev(b *branch.Branch, lastDev *version.Version,
 	return version.NewPreRelease(target, b.BuildTicket), nil
 }
 
-// onPatchDev handles patch/* branches: pre-release targeting the next patch release.
-func (c *NewVersionCalculator) onPatchDev(b *branch.Branch, lastDev *version.Version, lastRelease *version.Version) (*version.Version, error) {
+// onPatch handles patch/* branches: pre-release targeting the next patch release.
+func (c *NewVersionCalculator) onPatch(b *branch.Branch, lastDev *version.Version, lastRelease *version.Version) (*version.Version, error) {
 	target, err := c.patchTarget(lastRelease)
 	if err != nil {
 		return nil, err

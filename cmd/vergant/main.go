@@ -72,7 +72,7 @@ func newTool(configFile string) (*tool.VersioningTool, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tool.New(cfg, git.New(".")), nil
+	return tool.New(cfg, git.NewGitRepository(".")), nil
 }
 
 func mayFetch(t *tool.VersioningTool, noFetch bool) error {
