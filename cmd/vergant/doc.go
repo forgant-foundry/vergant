@@ -116,7 +116,7 @@ the release timeline.
 
 The versioning strategy — which component to increment, and which lifecycle stage
 to target — is determined entirely by the name of the current branch matched
-against patterns in vergant.config.json. This means:
+against patterns in .vergant.yml. This means:
 
   - No commit message convention (Conventional Commits, etc.) is required.
   - Increment type is a property of the branch, not of individual commits.

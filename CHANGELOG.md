@@ -48,10 +48,11 @@ communication.
   semver build metadata (e.g. `d1.4.0+acme.123.2`).
 - Branch-driven strategy: branch name determines increment type and lifecycle
   stage — no commit message convention required.
-- Cobra subcommand CLI (`last-version`, `last-release`, `new`, `promote`,
-  `list`) with `--config`, `--no-fetch`, and `--dry-run` flags.
-- `vergant.config.json` for project-level configuration (major version, branch
-  regex patterns, workflow mode).
+- Subcommand CLI (`last-version`, `last-release`, `new`, `promote`, `list`)
+  with `-config`, `-no-fetch`, and `-dry-run` flags implemented with stdlib
+  `flag` — no external dependencies.
+- `.vergant.yml` for project-level configuration (major version, branch
+  regex patterns, workflow mode). Flat key-value YAML parsed without a library.
 - `git.Repository` interface decoupling business logic from the git
   implementation, enabling fast unit tests with a stub.
 - `testutil.RepoHelper` using `GIT_COMMITTER_DATE` injection for deterministic
@@ -71,8 +72,12 @@ communication.
 
 ### Changed
 
-- CLI redesigned from a flat flag interface (`--lastVersion`, `--new`) to Cobra
+- CLI redesigned from a flat flag interface (`--lastVersion`, `--new`) to
   subcommands with per-command flags and built-in help.
+- Cobra dependency removed; CLI rewritten with stdlib `flag` package, reducing
+  binary size and eliminating all external dependencies.
+- Configuration file format changed from JSON (`vergant.config.json`) to flat
+  key-value YAML (`.vergant.yml`), parsed without a library.
 - `AcquireLastVersion` strategy tests consolidated into a single table-driven
   test; added patch branch case and assertion that `LastVersionForDevelopment`
   is called with the correct ticket identifier.

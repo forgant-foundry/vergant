@@ -38,7 +38,7 @@ vergant promote <ver>   # promote a candidate to release; --dry-run to skip tag
 vergant list            # list all reachable tags
 ```
 
-Global flags: `--config vergant.config.json`, `--no-fetch`
+Global flags: `--config .vergant.yml`, `--no-fetch`
 
 ## Architecture
 
@@ -85,16 +85,14 @@ Dev versions embed a ticket identifier extracted from the first capture group of
 
 Unrecognised branch names are an error — a CD pipeline should fail loudly rather than silently produce a wrong version.
 
-### Configuration (`vergant.config.json`)
+### Configuration (`.vergant.yml`)
 
-```json
-{
-  "majorVersion": 0,
-  "defaultBranch": "main",
-  "patchBranchRegEx": "^support\\/.*",
-  "devBranchRegEx": "^.*?\\/*([\\w]+-\\d+)\\D*",
-  "mode": "ReleaseOnly"
-}
+```yaml
+majorVersion: 0
+defaultBranch: main
+patchBranchRegEx: ^support\/.*
+devBranchRegEx: ^.*?\/*(\w+-\d+)\D*
+mode: release
 ```
 
 Missing file or empty path returns defaults. `Load("")` is valid.

@@ -1,9 +1,10 @@
 package config_test
 
 import (
-	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/forgant-foundry/vergant/internal/config"
@@ -26,7 +27,7 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadMissingFile(t *testing.T) {
-	c, err := config.Load(filepath.Join(t.TempDir(), "does-not-exist.json"))
+	c, err := config.Load(filepath.Join(t.TempDir(), "does-not-exist.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,13 +38,13 @@ func TestLoadMissingFile(t *testing.T) {
 
 func TestLoadFromFile(t *testing.T) {
 	tests := []struct {
-		name    string
-		json    map[string]any
-		check   func(*testing.T, *config.Config)
+		name   string
+		yaml   map[string]any
+		check  func(*testing.T, *config.Config)
 	}{
 		{
 			name: "majorVersion",
-			json: map[string]any{"majorVersion": 2},
+			yaml: map[string]any{"majorVersion": 2},
 			check: func(t *testing.T, c *config.Config) {
 				if c.MajorVersion != 2 {
 					t.Errorf("MajorVersion: got %d, want 2", c.MajorVersion)
@@ -55,7 +56,7 @@ func TestLoadFromFile(t *testing.T) {
 		},
 		{
 			name: "candidateMode",
-			json: map[string]any{"majorVersion": 1, "mode": "candidate"},
+			yaml: map[string]any{"majorVersion": 1, "mode": "candidate"},
 			check: func(t *testing.T, c *config.Config) {
 				if c.Mode != config.CandidateToRelease {
 					t.Errorf("Mode: got %v, want CandidateToRelease", c.Mode)
@@ -64,7 +65,7 @@ func TestLoadFromFile(t *testing.T) {
 		},
 		{
 			name: "releaseMode",
-			json: map[string]any{"majorVersion": 1, "mode": "release"},
+			yaml: map[string]any{"majorVersion": 1, "mode": "release"},
 			check: func(t *testing.T, c *config.Config) {
 				if c.Mode != config.ReleaseOnly {
 					t.Errorf("Mode: got %v, want ReleaseOnly", c.Mode)
@@ -73,7 +74,7 @@ func TestLoadFromFile(t *testing.T) {
 		},
 		{
 			name: "overrides",
-			json: map[string]any{
+			yaml: map[string]any{
 				"majorVersion":     1,
 				"defaultBranch":    "dev",
 				"patchBranchRegEx": `^release\/.*`,
@@ -91,7 +92,7 @@ func TestLoadFromFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := writeJSON(t, tt.json)
+			path := writeYAML(t, tt.yaml)
 			c, err := config.Load(path)
 			if err != nil {
 				t.Fatal(err)
@@ -101,24 +102,24 @@ func TestLoadFromFile(t *testing.T) {
 	}
 }
 
-func TestLoadInvalidJSON(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "bad.json")
-	if err := os.WriteFile(path, []byte("{not valid json"), 0644); err != nil {
+func TestLoadInvalidYAML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad.yml")
+	if err := os.WriteFile(path, []byte("not valid yaml\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := config.Load(path); err == nil {
-		t.Fatal("expected error for invalid JSON")
+		t.Fatal("expected error for invalid YAML")
 	}
 }
 
-func writeJSON(t *testing.T, v any) string {
+func writeYAML(t *testing.T, fields map[string]any) string {
 	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
+	var sb strings.Builder
+	for k, v := range fields {
+		sb.WriteString(fmt.Sprintf("%s: %v\n", k, v))
 	}
-	path := filepath.Join(t.TempDir(), "config.json")
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	path := filepath.Join(t.TempDir(), "config.yml")
+	if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
 		t.Fatal(err)
 	}
 	return path

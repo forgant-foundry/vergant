@@ -82,7 +82,7 @@ Commands:
   list           List all reachable tags
 
 Global flags:
-  --config string   config file (default: vergant.config.json)
+  --config string   config file (default: .vergant.yml)
   --no-fetch        skip fetching tags from remote before querying
 
 Flags for new and promote:
@@ -107,25 +107,23 @@ vergant list
 
 ## Configuration
 
-Create `vergant.config.json` in the project root. All fields are optional — the defaults work for most projects.
+Create `.vergant.yml` in the project root. All fields are optional — the defaults work for most projects.
 
-```json
-{
-  "majorVersion": 1
-}
+```yaml
+majorVersion: 1
 ```
 
 Full configuration with all fields:
 
-```json
-{
-  "majorVersion": 1,
-  "defaultBranch": "main",
-  "patchBranchRegEx": "^support\\/.*",
-  "devBranchRegEx": "^.*?\\/*([\\w]+-\\d+)\\D*",
-  "mode": "release"
-}
+```yaml
+majorVersion: 1
+defaultBranch: main
+patchBranchRegEx: ^support\/.*
+devBranchRegEx: ^.*?\/*(\w+-\d+)\D*
+mode: release
 ```
+
+The file is flat key-value YAML — one field per line, no nesting. Lines beginning with `#` are comments.
 
 ### Fields
 

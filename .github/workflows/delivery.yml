@@ -37,12 +37,24 @@ jobs:
       - name: Build release binaries
         if: startsWith(steps.version.outputs.tag, 'r')
         run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          SEM="${VERSION#r}"
           LDFLAGS="-s -w"
-          GOOS=linux   GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/vergant-linux-amd64        ./cmd/vergant
-          GOOS=darwin  GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/vergant-darwin-amd64       ./cmd/vergant
-          GOOS=darwin  GOARCH=arm64 go build -ldflags="$LDFLAGS" -o dist/vergant-darwin-arm64       ./cmd/vergant
-          GOOS=windows GOARCH=amd64 go build -ldflags="$LDFLAGS" -o dist/vergant-windows-amd64.exe  ./cmd/vergant
-          sha256sum dist/* > dist/checksums.txt
+          mkdir -p dist
+
+          GOOS=linux  GOARCH=amd64 go build -ldflags="$LDFLAGS" -o /tmp/vergant ./cmd/vergant
+          tar czf "dist/vergant_${SEM}_linux_amd64.tar.gz" -C /tmp vergant
+
+          GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o /tmp/vergant ./cmd/vergant
+          tar czf "dist/vergant_${SEM}_darwin_amd64.tar.gz" -C /tmp vergant
+
+          GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o /tmp/vergant ./cmd/vergant
+          tar czf "dist/vergant_${SEM}_darwin_arm64.tar.gz" -C /tmp vergant
+
+          GOOS=windows GOARCH=amd64 go build -ldflags="$LDFLAGS" -o /tmp/vergant.exe ./cmd/vergant
+          cd /tmp && zip "${GITHUB_WORKSPACE}/dist/vergant_${SEM}_windows_amd64.zip" vergant.exe && cd -
+
+          cd dist && sha256sum *.tar.gz *.zip > "vergant_${SEM}_checksums.txt"
 
       - name: Create release
         if: startsWith(steps.version.outputs.tag, 'r')

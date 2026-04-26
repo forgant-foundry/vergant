@@ -1,18 +1,20 @@
-// Package config loads vergant's project-level configuration from a JSON file.
+// Package config loads vergant's project-level configuration from a YAML file.
 //
 // # Configuration file
 //
 // The file is optional. All fields have defaults; a missing file is equivalent
-// to an empty object. The default filename expected by the CLI is
-// vergant.config.json in the working directory.
+// to an empty file. The default filename expected by the CLI is
+// .vergant.yml in the working directory.
 //
-//	{
-//	  "majorVersion":     1,
-//	  "defaultBranch":    "main",
-//	  "patchBranchRegEx": "^support\\/.*",
-//	  "devBranchRegEx":   "^.*?\\/*([\\w]+-\\d+)\\D*",
-//	  "mode":             "release"
-//	}
+// The file is flat key-value YAML — one field per line, no nesting. Lines
+// beginning with # are comments; blank lines are ignored. Values may optionally
+// be enclosed in single or double quotes.
+//
+//	majorVersion: 1
+//	defaultBranch: main
+//	patchBranchRegEx: ^support\/.*
+//	devBranchRegEx: ^.*?\/*(\w+-\d+)\D*
+//	mode: release
 //
 // majorVersion controls the major component of generated versions. When the
 // last reachable version has a lower major, vergant generates major.0.0. A
@@ -32,5 +34,5 @@
 //
 // [Load] reads the file at path and merges it over defaults. A missing file
 // returns defaults without error. An empty path returns defaults. A file that
-// exists but contains invalid JSON returns an error.
+// exists but contains invalid YAML returns an error.
 package config
