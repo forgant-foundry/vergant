@@ -241,8 +241,8 @@ A single workflow is required because GitHub Actions will not trigger a second w
 `fetch-depth: 0` is required. Without full commit history, `git tag --list --merged` cannot correctly scope tags to branch ancestry, which is the mechanism that makes parallel branch isolation work.
 
 ```yaml
-# .github/workflows/version.yml
-name: version
+# .github/workflows/delivery.yml
+name: delivery
 
 on:
   push:

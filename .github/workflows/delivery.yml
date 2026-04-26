@@ -1,4 +1,4 @@
-name: version
+name: delivery
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - '**'
 
 jobs:
-  version:
+  delivery:
     runs-on: ubuntu-latest
     permissions:
       contents: write
