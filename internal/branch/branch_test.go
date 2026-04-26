@@ -8,10 +8,11 @@ import (
 )
 
 var defaultCfg = &config.Config{
-	MajorVersion:     1,
-	DefaultBranch:    "main",
-	PatchBranchRegEx: `^support\/.*`,
-	DevBranchRegEx:   `^.*?\/*(\w+-\d+)\D*`,
+	MajorVersion:        1,
+	DefaultBranch:       "main",
+	SupportBranchRegEx:    `^support\/.*`,
+	DevBranchRegEx:      `^dev\/(.+)$`,
+	PatchBranchRegEx: `^patch\/(.+)$`,
 }
 
 func TestDefaultBranch(t *testing.T) {
@@ -26,11 +27,12 @@ func TestDefaultBranch(t *testing.T) {
 
 func TestDefaultBranchOverride(t *testing.T) {
 	cfg := &config.Config{
-		DefaultBranch:    "dev",
+		DefaultBranch:       "trunk",
+		SupportBranchRegEx:    defaultCfg.SupportBranchRegEx,
+		DevBranchRegEx:      defaultCfg.DevBranchRegEx,
 		PatchBranchRegEx: defaultCfg.PatchBranchRegEx,
-		DevBranchRegEx:   defaultCfg.DevBranchRegEx,
 	}
-	b, err := branch.ForName(cfg, "dev")
+	b, err := branch.ForName(cfg, "trunk")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,8 +49,8 @@ func TestPatchBranch(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if b.Category != branch.Patch {
-				t.Errorf("category: got %v, want Patch", b.Category)
+			if b.Category != branch.Support {
+				t.Errorf("category: got %v, want Support", b.Category)
 			}
 		})
 	}
@@ -59,9 +61,9 @@ func TestDevBranch(t *testing.T) {
 		name   string
 		ticket string
 	}{
-		{"feature/ACME-123_some_branch", "acme.123"},
-		{"feature/ACME-123", "acme.123"},
-		{"ACME-123", "acme.123"},
+		{"dev/ACME-123", "acme.123"},
+		{"dev/my-feature", "my.feature"},
+		{"dev/acme_456", "acme.456"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -71,6 +73,30 @@ func TestDevBranch(t *testing.T) {
 			}
 			if b.Category != branch.Dev {
 				t.Errorf("category: got %v, want Dev", b.Category)
+			}
+			if b.BuildTicket != tt.ticket {
+				t.Errorf("ticket: got %q, want %q", b.BuildTicket, tt.ticket)
+			}
+		})
+	}
+}
+
+func TestPatchDevBranch(t *testing.T) {
+	tests := []struct {
+		name   string
+		ticket string
+	}{
+		{"patch/ACME-456", "acme.456"},
+		{"patch/fix-null-ptr", "fix.null.ptr"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, err := branch.ForName(defaultCfg, tt.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if b.Category != branch.Patch {
+				t.Errorf("category: got %v, want Patch", b.Category)
 			}
 			if b.BuildTicket != tt.ticket {
 				t.Errorf("ticket: got %q, want %q", b.BuildTicket, tt.ticket)

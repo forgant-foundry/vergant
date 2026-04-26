@@ -36,7 +36,18 @@ func (t *VersioningTool) NewVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	return strategy.NewNewVersionCalculator(t.config).Resolve(b, last)
+	var lastRelease *version.Version
+	if b.Category == branch.Dev || b.Category == branch.Patch {
+		tag, err := t.git.LastRelease()
+		if err != nil {
+			return nil, err
+		}
+		lastRelease, err = version.Parse(tag)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return strategy.NewNewVersionCalculator(t.config).Resolve(b, last, lastRelease)
 }
 
 // LastVersion returns the most recent release or candidate version, or nil.

@@ -37,11 +37,11 @@ Versions carry a single-letter category prefix:
 |--------|---------|---------|
 | `r` | Release — shipped | `r1.4.0` |
 | `c` | Candidate — proposed release | `c1.4.0` |
-| `d` | Development — in-progress build | `d1.4.0+acme.123.2` |
+| `d` | Development — in-progress build | `d1.5.0-acme.123.2` |
 
 The same semver number can exist at multiple lifecycle stages. Promotion from candidate to release changes only the prefix — the version number itself does not change.
 
-Development versions encode a ticket identifier and a monotonic build counter in semver build metadata. Build metadata is ignored by semver precedence rules, so development versions never interfere with release ordering.
+Development versions use semver pre-release identifiers (`-`) to embed a ticket identifier and a monotonic build counter. Unlike build metadata (`+`), pre-release identifiers are ordered by semver precedence rules, making dev versions sortable by tools that consume semver (npm, cargo, etc.). The base version in a dev tag is the **target** next release — the version this branch will produce when merged — rather than the last shipped release.
 
 ### Branch-Driven Strategy
 
@@ -50,8 +50,11 @@ Branch name determines increment type. No commit message convention is required.
 | Branch | Matched by | Produces |
 |--------|-----------|---------|
 | Default (`main`) | `defaultBranch` config | Minor increment; major increment when `majorVersion` config advances |
-| Patch (`support/1.4.x`) | `patchBranchRegEx` | Patch increment |
-| Dev (`feature/ACME-123`) | `devBranchRegEx` | Development version with ticket metadata |
+| Support (`support/1.4.x`) | `supportBranchRegEx` | Patch increment |
+| Dev (`dev/ACME-123`) | `devBranchRegEx` | Pre-release targeting next minor (or next major) |
+| Patch (`patch/ACME-456`) | `patchBranchRegEx` | Pre-release targeting next patch |
+
+The branch prefix encodes intent. `dev/*` branches target a minor (or major) release; `patch/*` branches target a patch release and are merged into a `support/*` branch. No flags are required — the branch name is the sole signal.
 
 An unrecognised branch name is an error — a CD pipeline should fail loudly rather than silently produce a wrong version.
 
@@ -86,7 +89,7 @@ Global flags:
   --no-fetch        skip fetching tags from remote before querying
 
 Flags for new and promote:
-  --dry-run         print the version without creating or pushing the tag
+  --dry-run   print the version without creating or pushing the tag
 ```
 
 ### Examples
@@ -118,8 +121,9 @@ Full configuration with all fields:
 ```yaml
 majorVersion: 1
 defaultBranch: main
-patchBranchRegEx: ^support\/.*
-devBranchRegEx: ^.*?\/*(\w+-\d+)\D*
+supportBranchRegEx: ^support\/.*
+devBranchRegEx: ^dev\/(.+)$
+patchBranchRegEx: ^patch\/(.+)$
 mode: release
 ```
 
@@ -131,9 +135,11 @@ The file is flat key-value YAML — one field per line, no nesting. Lines beginn
 
 **`defaultBranch`** — The trunk branch name. Default: `main`.
 
-**`patchBranchRegEx`** — Regular expression identifying patch branches. Default: `^support\/.*`. A common alternative is `^release\/.*`. By convention, name the patch branch after the version it patches: `support/1.4.0`.
+**`supportBranchRegEx`** — Regular expression identifying support branches. Default: `^support\/.*`. A common alternative is `^release\/.*`. By convention, name the support branch after the version it patches: `support/1.4.0`.
 
-**`devBranchRegEx`** — Regular expression identifying development branches. Must contain exactly one capture group — that group is the ticket identifier embedded in dev version tags. Default pattern captures JIRA-style identifiers (`ACME-123`). The captured value is coerced to lowercase with hyphens and underscores replaced by dots to produce a build-metadata-safe component: `ACME-123` → `acme.123`.
+**`devBranchRegEx`** — Regular expression identifying `dev/*` branches. Must contain exactly one capture group whose match becomes the ticket identifier in the pre-release tag. Default: `^dev\/(.+)$`. The captured value is coerced to lowercase with hyphens and underscores replaced by dots: `ACME-123` → `acme.123`.
+
+**`patchBranchRegEx`** — Regular expression identifying `patch/*` branches, which produce pre-releases targeting a patch increment. Same capture group requirement as `devBranchRegEx`. Default: `^patch\/(.+)$`.
 
 **`mode`** — Workflow mode. `release` (default) creates release tags directly on the default branch. `candidate` creates candidate tags that must be explicitly promoted. Use `candidate` for pipelines where a build is exercised across multiple stages before shipping.
 
@@ -143,9 +149,11 @@ vergant has opinions about branching that shed unnecessary GitFlow complexity.
 
 **Default branch** — The trunk. Applying vergant's approach renders a separate `dev` or `develop` branch unnecessary. Releases are identified by version tags, not branch names.
 
-**Development branches** — For in-progress features or fixes. The branch name must match `devBranchRegEx`; the captured group becomes the ticket identifier in dev version tags. Differentiating between feature, bugfix, or hotfix in the branch name is not required — the ticket identifier is sufficient.
+**`dev/*` branches** — For features and changes targeting a minor (or major) release. The captured suffix becomes the ticket identifier in the pre-release tag (`dev/ACME-123` → `acme.123`).
 
-**Patch branches** — For patching a previously released version. Create the branch from the release tag being patched, not from main. Name it after the version: `support/1.4.0`. Development branches can be created from a patch branch for implementing individual fixes; they follow the same `devBranchRegEx` convention.
+**`patch/*` branches** — For fixes targeting a patch release. Merge into the relevant `support/*` branch. Create from the `support/*` branch being patched, not from main.
+
+**`support/*` branches** — For maintaining a previously released version. Create from the release tag being patched (e.g. `support/1.4.0`). `patch/*` branches merge here; `vergant new` on `support/*` after each merge produces the patch release.
 
 ## Example Scenarios
 
@@ -191,33 +199,45 @@ result:   r1.4.1
 
 ### First dev build on a branch
 
-Branch `feature/ACME-123` was cut after `r1.4.0`.
+`dev/ACME-123` was cut after `r1.4.0`. The `dev/` prefix signals a minor-increment target.
 
 ```
-branch:   feature/ACME-123
-previous: r1.4.0
-result:   d1.4.0+acme.123.0
+branch:       dev/ACME-123
+last release: r1.4.0
+result:       d1.5.0-acme.123.0
 ```
+
+The base version `1.5.0` is the target next release — what this branch will produce when merged to main.
 
 ### Subsequent dev builds
 
 Each `vergant new` on the same branch increments the build counter.
 
 ```
-branch:   feature/ACME-123
-previous: d1.4.0+acme.123.2
-result:   d1.4.0+acme.123.3
+branch:   dev/ACME-123
+last dev: d1.5.0-acme.123.2
+result:   d1.5.0-acme.123.3
 ```
 
 ### Dev branch rebased on a newer base
 
-When a dev branch is rebased on a newer main, the next dev version anchors to the new base.
+When a dev branch is rebased on a newer main, the target advances and the counter resets.
 
 ```
-branch:          feature/ACME-123
-last release:    r1.6.0
-last dev:        d1.4.0+acme.123.3
-result:          d1.6.0+acme.123.0
+branch:       dev/ACME-123
+last release: r1.6.0
+last dev:     d1.5.0-acme.123.3
+result:       d1.7.0-acme.123.0
+```
+
+### Patch dev build
+
+`patch/ACME-456` was cut from `support/1.4.0` after `r1.4.2`. The `patch/` prefix signals a patch-increment target.
+
+```
+branch:       patch/ACME-456
+last release: r1.4.2
+result:       d1.4.3-acme.456.0
 ```
 
 ### Candidate to release (candidate mode)

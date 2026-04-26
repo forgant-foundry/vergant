@@ -67,7 +67,7 @@ Versions carry a single-letter category prefix:
 |--------|---------|---------|
 | `r` | Release — shipped, immutable | `r1.4.0` |
 | `c` | Candidate — proposed release | `c1.4.0` |
-| `d` | Development — in-progress build | `d1.4.0+acme.123.2` |
+| `d` | Development — in-progress build | `d1.5.0-acme.123.2` |
 
 Promote changes only the prefix (`c` → `r`) on the same commit — it does not recalculate the version number. `CurrentTags` (HEAD-only, not the full reachable set) enforces that promotion is tied to the exact commit being shipped.
 
@@ -78,10 +78,11 @@ Branch name determines increment type; no commit message convention is required.
 | Branch type | Matched by | Increment |
 |-------------|-----------|-----------|
 | Default (`main`) | `Config.DefaultBranch` | minor (or major if behind `majorVersion`) |
-| Patch (`support/1.4.x`) | `Config.PatchBranchRegEx` | patch |
-| Dev (`feature/ACME-123`) | `Config.DevBranchRegEx` | build counter with ticket metadata |
+| Patch (`support/*`) | `Config.SupportBranchRegEx` | patch release |
+| Dev (`dev/*`) | `Config.DevBranchRegEx` | pre-release targeting next minor (or major) |
+| PatchDev (`patch/*`) | `Config.PatchBranchRegEx` | pre-release targeting next patch |
 
-Dev versions embed a ticket identifier extracted from the first capture group of `devBranchRegEx`, coerced to build-metadata-safe form: `feature/ACME-123` → `acme.123` → `d1.4.0+acme.123.0`.
+The branch prefix encodes the increment intent — no flag required. Dev versions use semver pre-release identifiers (`-`) so they are ordered by semver-aware tools. The base version is the **target** next release. The ticket identifier is extracted from the first capture group of the branch regex and coerced: `dev/ACME-123` → `acme.123` → `d1.5.0-acme.123.0`.
 
 Unrecognised branch names are an error — a CD pipeline should fail loudly rather than silently produce a wrong version.
 
@@ -91,7 +92,8 @@ Unrecognised branch names are an error — a CD pipeline should fail loudly rath
 majorVersion: 0
 defaultBranch: main
 patchBranchRegEx: ^support\/.*
-devBranchRegEx: ^.*?\/*(\w+-\d+)\D*
+devBranchRegEx: ^dev\/(.+)$
+patchDevBranchRegEx: ^patch\/(.+)$
 mode: release
 ```
 
@@ -99,7 +101,7 @@ Missing file or empty path returns defaults. `Load("")` is valid.
 
 ### Separation of Calculation and Tagging
 
-`VersioningTool.NewVersion` resolves and calculates the next version but does not create the tag. `VersioningTool.Tag` applies it. `--dry-run` calls `NewVersion`, prints the result, and skips `Tag`. The same split applies to `Promote`. No logic is duplicated.
+`VersioningTool.NewVersion(increment string)` resolves and calculates the next version but does not create the tag. `VersioningTool.Tag` applies it. `-dry-run` calls `NewVersion`, prints the result, and skips `Tag`. The same split applies to `Promote`. No logic is duplicated.
 
 ### `git.Repository` Interface
 

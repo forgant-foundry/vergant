@@ -45,15 +45,15 @@ func TestLastVersionForDevelopment(t *testing.T) {
 
 	g := git.New(r.Dir)
 
-	// no dev tag yet — falls back to last release/candidate
-	if got, _ := g.LastVersionForDevelopment("acme.123"); got != "c1.3.0" {
-		t.Errorf("fallback: got %q, want c1.3.0", got)
+	// no dev tag yet — returns empty string
+	if got, _ := g.LastVersionForDevelopment("acme.123"); got != "" {
+		t.Errorf("no dev tag: got %q, want empty", got)
 	}
 
-	r.TaggedCommit("d1.3.0+acme.123.0")
+	r.TaggedCommit("d1.3.0-acme.123.0")
 
-	if got, _ := g.LastVersionForDevelopment("acme.123"); got != "d1.3.0+acme.123.0" {
-		t.Errorf("dev tag: got %q, want d1.3.0+acme.123.0", got)
+	if got, _ := g.LastVersionForDevelopment("acme.123"); got != "d1.3.0-acme.123.0" {
+		t.Errorf("dev tag: got %q, want d1.3.0-acme.123.0", got)
 	}
 }
 
@@ -150,23 +150,23 @@ func TestReachability_ParallelDevBranchesIsolated(t *testing.T) {
 	r.TaggedCommit("r1.0.0")
 
 	r.Branch("feature/acme-1")
-	r.TaggedCommit("d1.0.0+acme.1.0")
+	r.TaggedCommit("d1.1.0-acme.1.0")
 
 	r.Checkout("main")
 	r.Branch("feature/acme-2")
-	r.TaggedCommit("d1.0.0+acme.2.0")
+	r.TaggedCommit("d1.1.0-acme.2.0")
 
 	g := git.New(r.Dir)
 
 	// acme-2 cannot see acme-1's dev tag
-	if got, _ := g.LastVersionForDevelopment("acme.1"); got == "d1.0.0+acme.1.0" {
+	if got, _ := g.LastVersionForDevelopment("acme.1"); got == "d1.1.0-acme.1.0" {
 		t.Error("feature/acme-2 should not see feature/acme-1 dev tag")
 	}
 
 	r.Checkout("feature/acme-1")
 
 	// acme-1 cannot see acme-2's dev tag
-	if got, _ := g.LastVersionForDevelopment("acme.2"); got == "d1.0.0+acme.2.0" {
+	if got, _ := g.LastVersionForDevelopment("acme.2"); got == "d1.1.0-acme.2.0" {
 		t.Error("feature/acme-1 should not see feature/acme-2 dev tag")
 	}
 }

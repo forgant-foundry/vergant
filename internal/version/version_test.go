@@ -8,16 +8,16 @@ import (
 
 func TestParse(t *testing.T) {
 	tests := []struct {
-		input    string
-		wantNil  bool
-		wantCat  version.Category
-		wantRaw  string
-		wantErr  bool
+		input   string
+		wantNil bool
+		wantCat version.Category
+		wantRaw string
+		wantErr bool
 	}{
 		{input: "", wantNil: true},
 		{input: "r1.2.3", wantCat: version.Release, wantRaw: "r1.2.3"},
 		{input: "c1.2.3", wantCat: version.Candidate, wantRaw: "c1.2.3"},
-		{input: "d1.2.3+asdf.123.0", wantCat: version.Dev, wantRaw: "d1.2.3+asdf.123.0"},
+		{input: "d1.2.3-asdf.123.0", wantCat: version.Dev, wantRaw: "d1.2.3-asdf.123.0"},
 		{input: "v1.2.3", wantErr: true},
 		{input: "rnot-a-version", wantErr: true},
 	}
@@ -55,12 +55,12 @@ func TestParseFields(t *testing.T) {
 		t.Errorf("got %d.%d.%d, want 1.2.3", v.Major(), v.Minor(), v.Patch())
 	}
 
-	d := mustParse(t, "d1.2.3+asdf.123.0")
-	if got := d.RenderUncategorized(); got != "1.2.3+asdf.123.0" {
+	d := mustParse(t, "d1.2.3-asdf.123.0")
+	if got := d.RenderUncategorized(); got != "1.2.3-asdf.123.0" {
 		t.Errorf("uncategorized: got %q", got)
 	}
-	if ticket := d.BuildTicket(); len(ticket) != 2 || ticket[0] != "asdf" || ticket[1] != "123" {
-		t.Errorf("build ticket: got %v", ticket)
+	if ticket := d.PreReleaseTicket(); len(ticket) != 2 || ticket[0] != "asdf" || ticket[1] != "123" {
+		t.Errorf("pre-release ticket: got %v", ticket)
 	}
 }
 
@@ -101,11 +101,11 @@ func TestNewMajor(t *testing.T) {
 	}
 }
 
-func TestNewBuild(t *testing.T) {
-	base := mustParse(t, "r1.2.3")
-	v := version.NewBuild(base, "asdf.123")
-	if got := v.RenderCategorized(); got != "d1.2.3+asdf.123.0" {
-		t.Errorf("got %q, want d1.2.3+asdf.123.0", got)
+func TestNewPreRelease(t *testing.T) {
+	target := mustParse(t, "r1.3.0")
+	v := version.NewPreRelease(target, "asdf.123")
+	if got := v.RenderCategorized(); got != "d1.3.0-asdf.123.0" {
+		t.Errorf("got %q, want d1.3.0-asdf.123.0", got)
 	}
 }
 
@@ -130,10 +130,10 @@ func TestIncrements(t *testing.T) {
 	}
 }
 
-func TestIncrementBuild(t *testing.T) {
-	v := mustParse(t, "d1.2.3+asdf.123.1")
-	if got := v.IncrementBuild().RenderCategorized(); got != "d1.2.3+asdf.123.2" {
-		t.Errorf("got %q, want d1.2.3+asdf.123.2", got)
+func TestIncrementPreRelease(t *testing.T) {
+	v := mustParse(t, "d1.2.3-asdf.123.1")
+	if got := v.IncrementPreRelease().RenderCategorized(); got != "d1.2.3-asdf.123.2" {
+		t.Errorf("got %q, want d1.2.3-asdf.123.2", got)
 	}
 }
 
@@ -144,7 +144,7 @@ func TestRenderMessage(t *testing.T) {
 	}{
 		{"r1.2.3", "release 1.2.3"},
 		{"c1.2.3", "candidate 1.2.3"},
-		{"d1.2.3+asdf.123.2", "development 1.2.3+asdf.123.2"},
+		{"d1.2.3-asdf.123.2", "development 1.2.3-asdf.123.2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

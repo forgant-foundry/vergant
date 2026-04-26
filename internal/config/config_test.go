@@ -75,16 +75,16 @@ func TestLoadFromFile(t *testing.T) {
 		{
 			name: "overrides",
 			yaml: map[string]any{
-				"majorVersion":     1,
-				"defaultBranch":    "dev",
-				"patchBranchRegEx": `^release\/.*`,
+				"majorVersion":        1,
+				"defaultBranch":       "dev",
+				"supportBranchRegEx":  `^release\/.*`,
 			},
 			check: func(t *testing.T, c *config.Config) {
 				if c.DefaultBranch != "dev" {
 					t.Errorf("DefaultBranch: got %q", c.DefaultBranch)
 				}
-				if c.PatchBranchRegEx != `^release\/.*` {
-					t.Errorf("PatchBranchRegEx: got %q", c.PatchBranchRegEx)
+				if c.SupportBranchRegEx != `^release\/.*` {
+					t.Errorf("SupportBranchRegEx: got %q", c.SupportBranchRegEx)
 				}
 			},
 		},

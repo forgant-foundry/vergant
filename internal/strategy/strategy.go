@@ -19,11 +19,14 @@ func NewAcquireLastVersion(g git.Repository) *AcquireLastVersion {
 }
 
 // Resolve returns the relevant last version for b, or nil if no version exists yet.
+// For Dev and PatchDev branches this is the most recent dev tag for the ticket, or nil if none.
 func (a *AcquireLastVersion) Resolve(b *branch.Branch) (*version.Version, error) {
-	if b.Category == branch.Dev {
+	switch b.Category {
+	case branch.Dev, branch.Patch:
 		return a.lastVersionForDevelopment(b.BuildTicket)
+	default:
+		return a.lastVersion()
 	}
-	return a.lastVersion()
 }
 
 func (a *AcquireLastVersion) lastVersion() (*version.Version, error) {
@@ -59,14 +62,17 @@ func (c *NewVersionCalculator) defaultCategory() version.Category {
 }
 
 // Resolve calculates the next version for b given the last known version.
-func (c *NewVersionCalculator) Resolve(b *branch.Branch, last *version.Version) (*version.Version, error) {
+// lastRelease is used only by Dev and PatchDev branches to determine the target version.
+func (c *NewVersionCalculator) Resolve(b *branch.Branch, last *version.Version, lastRelease *version.Version) (*version.Version, error) {
 	switch b.Category {
 	case branch.Default:
 		return c.onDefault(last)
-	case branch.Patch:
+	case branch.Support:
 		return c.onPatch(last)
 	case branch.Dev:
-		return c.onDev(b, last)
+		return c.onDev(b, last, lastRelease)
+	case branch.Patch:
+		return c.onPatchDev(b, last, lastRelease)
 	default:
 		return nil, fmt.Errorf("unsupported branch category")
 	}
@@ -91,13 +97,50 @@ func (c *NewVersionCalculator) onPatch(last *version.Version) (*version.Version,
 	return last.IncrementPatch(c.defaultCategory()), nil
 }
 
-func (c *NewVersionCalculator) onDev(b *branch.Branch, last *version.Version) (*version.Version, error) {
-	if last == nil {
-		base := version.NewMajor(c.config.MajorVersion, c.defaultCategory())
-		return version.NewBuild(base, b.BuildTicket), nil
+// onDev handles dev/* branches: pre-release targeting the next minor (or major) release.
+func (c *NewVersionCalculator) onDev(b *branch.Branch, lastDev *version.Version, lastRelease *version.Version) (*version.Version, error) {
+	target, err := c.minorTarget(lastRelease)
+	if err != nil {
+		return nil, err
 	}
-	if len(last.Build()) == 0 {
-		return version.NewBuild(last, b.BuildTicket), nil
+	if lastDev != nil && sameBase(lastDev, target) {
+		return lastDev.IncrementPreRelease(), nil
 	}
-	return last.IncrementBuild(), nil
+	return version.NewPreRelease(target, b.BuildTicket), nil
+}
+
+// onPatchDev handles patch/* branches: pre-release targeting the next patch release.
+func (c *NewVersionCalculator) onPatchDev(b *branch.Branch, lastDev *version.Version, lastRelease *version.Version) (*version.Version, error) {
+	target, err := c.patchTarget(lastRelease)
+	if err != nil {
+		return nil, err
+	}
+	if lastDev != nil && sameBase(lastDev, target) {
+		return lastDev.IncrementPreRelease(), nil
+	}
+	return version.NewPreRelease(target, b.BuildTicket), nil
+}
+
+// minorTarget computes the target version for a dev/* branch: next minor, or next major if config advances.
+func (c *NewVersionCalculator) minorTarget(lastRelease *version.Version) (*version.Version, error) {
+	if lastRelease == nil || lastRelease.Major() < c.config.MajorVersion {
+		return version.NewMajor(c.config.MajorVersion, version.Release), nil
+	}
+	if lastRelease.Major() > c.config.MajorVersion {
+		return nil, fmt.Errorf("config majorVersion %d is below existing release %s",
+			c.config.MajorVersion, lastRelease.RenderCategorized())
+	}
+	return lastRelease.IncrementMinor(version.Release), nil
+}
+
+// patchTarget computes the target version for a patch/* branch: next patch of the last release.
+func (c *NewVersionCalculator) patchTarget(lastRelease *version.Version) (*version.Version, error) {
+	if lastRelease == nil {
+		return nil, fmt.Errorf("on a patch dev branch, no release found to patch")
+	}
+	return lastRelease.IncrementPatch(version.Release), nil
+}
+
+func sameBase(v, target *version.Version) bool {
+	return v.Major() == target.Major() && v.Minor() == target.Minor() && v.Patch() == target.Patch()
 }

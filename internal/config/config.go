@@ -19,19 +19,21 @@ const (
 
 // Config holds project versioning configuration.
 type Config struct {
-	MajorVersion     int
-	DefaultBranch    string
+	MajorVersion        int
+	DefaultBranch       string
+	SupportBranchRegEx    string
+	DevBranchRegEx      string
 	PatchBranchRegEx string
-	DevBranchRegEx   string
-	Mode             WorkflowMode
+	Mode                WorkflowMode
 }
 
 var defaults = Config{
-	MajorVersion:     0,
-	DefaultBranch:    "main",
-	PatchBranchRegEx: `^support\/.*`,
-	DevBranchRegEx:   `^.*?\/*(\w+-\d+)\D*`,
-	Mode:             ReleaseOnly,
+	MajorVersion:        0,
+	DefaultBranch:       "main",
+	SupportBranchRegEx:    `^support\/.*`,
+	DevBranchRegEx:      `^dev\/(.+)$`,
+	PatchBranchRegEx: `^patch\/(.+)$`,
+	Mode:                ReleaseOnly,
 }
 
 // Load reads a config file at path, applying defaults for any missing fields.
@@ -79,13 +81,17 @@ func parse(path string, data []byte) (*Config, error) {
 			if value != "" {
 				c.DefaultBranch = value
 			}
-		case "patchBranchRegEx":
+		case "supportBranchRegEx":
 			if value != "" {
-				c.PatchBranchRegEx = value
+				c.SupportBranchRegEx = value
 			}
 		case "devBranchRegEx":
 			if value != "" {
 				c.DevBranchRegEx = value
+			}
+		case "patchBranchRegEx":
+			if value != "" {
+				c.PatchBranchRegEx = value
 			}
 		case "mode":
 			switch value {

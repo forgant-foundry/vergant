@@ -87,32 +87,10 @@ func (g *Git) LastVersion() (string, error) {
 	return g.FindTag(`[cr]\d+\.\d+\.\d+$`)
 }
 
-// LastVersionForDevelopment returns the latest dev tag for buildTicket, falling back to the
-// last release/candidate if no dev tag for that ticket exists yet.
+// LastVersionForDevelopment returns the most recent dev tag for buildTicket, or "" if none exists.
 func (g *Git) LastVersionForDevelopment(buildTicket string) (string, error) {
-	lastVer, err := g.LastVersion()
-	if err != nil {
-		return "", err
-	}
-	if lastVer == "" {
-		return "", nil
-	}
-	v, err := version.Parse(lastVer)
-	if err != nil {
-		return "", err
-	}
-	pattern := fmt.Sprintf(`d%s\+%s\.\d+$`,
-		regexp.QuoteMeta(v.RenderUncategorized()),
-		regexp.QuoteMeta(buildTicket),
-	)
-	devTag, err := g.FindTag(pattern)
-	if err != nil {
-		return "", err
-	}
-	if devTag != "" {
-		return devTag, nil
-	}
-	return lastVer, nil
+	pattern := fmt.Sprintf(`d\d+\.\d+\.\d+-%s\.\d+$`, regexp.QuoteMeta(buildTicket))
+	return g.FindTag(pattern)
 }
 
 // CurrentTags returns all tags pointing at HEAD.

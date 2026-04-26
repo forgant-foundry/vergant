@@ -12,11 +12,12 @@ import (
 
 func defaultConfig() *config.Config {
 	return &config.Config{
-		MajorVersion:     1,
-		DefaultBranch:    "main",
-		PatchBranchRegEx: `^support\/.*`,
-		DevBranchRegEx:   `^.*?\/*(\w+-\d+)\D*`,
-		Mode:             config.ReleaseOnly,
+		MajorVersion:        1,
+		DefaultBranch:       "main",
+		SupportBranchRegEx:    `^support\/.*`,
+		DevBranchRegEx:      `^dev\/(.+)$`,
+		PatchBranchRegEx: `^patch\/(.+)$`,
+		Mode:                config.ReleaseOnly,
 	}
 }
 
@@ -31,6 +32,38 @@ func TestNewVersion(t *testing.T) {
 	}
 	if got := v.RenderCategorized(); got != "r1.3.0" {
 		t.Errorf("got %q, want r1.3.0", got)
+	}
+}
+
+func TestNewVersionDevBranch(t *testing.T) {
+	stub := &testutil.StubRepository{
+		CurrentBranchVal:     "dev/acme-123",
+		LastVersionForDevVal: "d1.3.0-acme.123.0",
+		LastReleaseVal:       "r1.2.0",
+	}
+	v, err := tool.New(defaultConfig(), stub).NewVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// last release r1.2.0 + minor = r1.3.0; last dev base matches target → increment counter
+	if got := v.RenderCategorized(); got != "d1.3.0-acme.123.1" {
+		t.Errorf("got %q, want d1.3.0-acme.123.1", got)
+	}
+}
+
+func TestNewVersionPatchDevBranch(t *testing.T) {
+	stub := &testutil.StubRepository{
+		CurrentBranchVal:     "patch/acme-456",
+		LastVersionForDevVal: "",
+		LastReleaseVal:       "r1.2.0",
+	}
+	v, err := tool.New(defaultConfig(), stub).NewVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// last release r1.2.0 + patch = r1.2.1; no existing pre-release → start at 0
+	if got := v.RenderCategorized(); got != "d1.2.1-acme.456.0" {
+		t.Errorf("got %q, want d1.2.1-acme.456.0", got)
 	}
 }
 
@@ -123,4 +156,3 @@ func TestListTags(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
-

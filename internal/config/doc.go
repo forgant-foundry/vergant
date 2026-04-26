@@ -12,8 +12,9 @@
 //
 //	majorVersion: 1
 //	defaultBranch: main
-//	patchBranchRegEx: ^support\/.*
-//	devBranchRegEx: ^.*?\/*(\w+-\d+)\D*
+//	supportBranchRegEx: ^support\/.*
+//	devBranchRegEx: ^dev\/(.+)$
+//	patchBranchRegEx: ^patch\/(.+)$
 //	mode: release
 //
 // majorVersion controls the major component of generated versions. When the
@@ -26,9 +27,10 @@
 // produce c-prefixed tags that must be explicitly promoted to r via the
 // promote command.
 //
-// patchBranchRegEx and devBranchRegEx are standard Go regular expressions.
-// devBranchRegEx must contain exactly one capture group whose match becomes
-// the ticket identifier embedded in dev version build metadata.
+// supportBranchRegEx, patchBranchRegEx, and devBranchRegEx are standard Go
+// regular expressions. devBranchRegEx and patchBranchRegEx must each contain
+// exactly one capture group whose match becomes the ticket identifier embedded
+// in the pre-release version tag.
 //
 // # Loading
 //

@@ -78,6 +78,18 @@ communication.
   binary size and eliminating all external dependencies.
 - Configuration file format changed from JSON (`vergant.config.json`) to flat
   key-value YAML (`.vergant.yml`), parsed without a library.
+- Dev version format changed from build metadata to semver pre-release:
+  `d1.4.0+acme.123.0` → `d1.5.0-acme.123.0`. Pre-release identifiers are
+  ordered by semver precedence rules, making dev versions sortable by
+  ecosystem tooling (npm, cargo, etc.). The base version now reflects the
+  target next release rather than the last shipped release.
+- Branch prefix encodes increment intent: `dev/*` targets the next minor (or
+  major) release; `patch/*` targets the next patch release. No `-increment`
+  flag required — the branch name is the sole signal.
+- New `patchDevBranchRegEx` config field (default `^patch\/(.+)$`) identifies
+  `patch/*` branches that produce patch pre-releases.
+- Default `devBranchRegEx` changed from a JIRA-capture pattern to `^dev\/(.+)$`
+  to match the `dev/*` naming convention.
 - `AcquireLastVersion` strategy tests consolidated into a single table-driven
   test; added patch branch case and assertion that `LastVersionForDevelopment`
   is called with the correct ticket identifier.
