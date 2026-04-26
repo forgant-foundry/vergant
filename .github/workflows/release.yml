@@ -17,6 +17,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Download dependencies
+        run: go mod download
+
       - name: Build
         run: |
           GOOS=linux   GOARCH=amd64 go build -o dist/vergant-linux-amd64        ./cmd/vergant
