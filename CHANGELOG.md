@@ -34,6 +34,10 @@ communication.
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] — 2026-04-26
+
 ### Added
 
 - Initial Go implementation of the versioning tool.
@@ -44,15 +48,19 @@ communication.
 - Version lifecycle prefix scheme: `r` (release), `c` (candidate), `d`
   (development). The same semver number can exist at multiple stages; promotion
   changes only the prefix.
-- Development versions encode ticket identifier and monotonic build counter in
-  semver build metadata (e.g. `d1.4.0+acme.123.2`).
 - Branch-driven strategy: branch name determines increment type and lifecycle
-  stage — no commit message convention required.
+  stage — no commit message convention required. Four branch categories:
+  `Default` (main), `Support` (support/*), `Dev` (dev/*), `Patch` (patch/*).
+- `dev/*` branches produce pre-releases targeting the next minor (or major)
+  release; `patch/*` branches produce pre-releases targeting the next patch
+  release. No `-increment` flag required — the branch name is the sole signal.
 - Subcommand CLI (`last-version`, `last-release`, `new`, `promote`, `list`)
-  with `-config`, `-no-fetch`, and `-dry-run` flags implemented with stdlib
+  with `--config`, `--no-fetch`, and `--dry-run` flags implemented with stdlib
   `flag` — no external dependencies.
 - `.vergant.yml` for project-level configuration (major version, branch
   regex patterns, workflow mode). Flat key-value YAML parsed without a library.
+  Fields: `majorVersion`, `defaultBranch`, `supportBranchRegEx`,
+  `devBranchRegEx`, `patchBranchRegEx`, `mode`.
 - `git.Repository` interface decoupling business logic from the git
   implementation, enabling fast unit tests with a stub.
 - `testutil.RepoHelper` using `GIT_COMMITTER_DATE` injection for deterministic
@@ -60,15 +68,17 @@ communication.
 - Reachability integration tests covering all isolation boundaries: ancestor
   visibility, dev branch isolation from post-branch main tags, parallel dev
   branch isolation, and patch branch isolation from newer main releases.
-- GitHub Actions workflows: `version.yml` applies a version tag on every branch
-  push; `release.yml` builds multi-platform binaries and publishes a GitHub
-  Release when an `r*` tag is pushed. The two workflows share a clean handoff —
-  the version tag is both vergant's version record and the release trigger.
+- GitHub Actions `delivery.yml` workflow: applies a version tag on every branch
+  push and builds multi-platform release archives (`tar.gz` / `.zip`) with a
+  versioned checksums file when an `r*` tag is pushed.
 - `README.md` covering motivation, reachable tags mechanism, version lifecycle,
   branch-driven strategy, configuration reference, CLI usage, example scenarios,
   branching guidance, GitHub Actions integration, and tag protection.
-- `.gitignore` synthesized by forglet's GitPlugin via `git: true` in
-  `.forglet.yml`. vergant is now a managed forglet project.
+- `Version.EqualBase` method for comparing major.minor.patch independently of
+  pre-release identifier and category, following the Go `Equal` naming idiom.
+- Named function types `Acquire` and `Calculate` in the strategy layer.
+  `AcquireLastVersion.Resolve` and `NewVersionCalculator.Resolve` both take only
+  a branch and return a callable, matching the original TypeScript design.
 
 ### Changed
 
@@ -83,16 +93,19 @@ communication.
   ordered by semver precedence rules, making dev versions sortable by
   ecosystem tooling (npm, cargo, etc.). The base version now reflects the
   target next release rather than the last shipped release.
-- Branch prefix encodes increment intent: `dev/*` targets the next minor (or
-  major) release; `patch/*` targets the next patch release. No `-increment`
-  flag required — the branch name is the sole signal.
-- New `patchDevBranchRegEx` config field (default `^patch\/(.+)$`) identifies
-  `patch/*` branches that produce patch pre-releases.
+- Config fields renamed for clarity: `PatchBranchRegEx` → `SupportBranchRegEx`
+  (support/* branches); `PatchDevBranchRegEx` → `PatchBranchRegEx` (patch/*
+  branches). YAML keys updated accordingly: `supportBranchRegEx`,
+  `patchBranchRegEx`.
+- Branch category constants renamed: `Patch` → `Support`, `PatchDev` → `Patch`.
 - Default `devBranchRegEx` changed from a JIRA-capture pattern to `^dev\/(.+)$`
   to match the `dev/*` naming convention.
-- `AcquireLastVersion` strategy tests consolidated into a single table-driven
-  test; added patch branch case and assertion that `LastVersionForDevelopment`
-  is called with the correct ticket identifier.
+- `Calculate` signature takes both `last` and `lastRelease` as explicit
+  call-time parameters. `NewVersionCalculator.Resolve` no longer captures
+  `lastRelease` in the closure, removing branch-category knowledge from the
+  tool layer.
+- Release artifacts renamed to `vergant_<semver>_<goos>_<goarch>.tar.gz` /
+  `.zip` with a versioned checksums file.
 
 ### Removed
 
@@ -100,3 +113,5 @@ communication.
   `CI_COMMIT_SHORT_SHA`, `CI_COMMIT_BRANCH`, `APOVER_TAGGER_TOKEN`). All
   behaviour is now determined by explicit command line arguments.
 - GitLab API tag creation path. Only native git is used.
+- `-increment` flag from the `new` subcommand. Increment type is derived
+  entirely from the branch name.
