@@ -34,15 +34,45 @@ communication.
 
 ## [Unreleased]
 
+---
+
+## [1.3.0] — 2026-04-27
+
 ### Added
+
+- **Multi-path versioning.** A single git log can now carry independent version
+  sequences for multiple libraries. Set `path: <name>` in `.vergant.yml` or
+  pass `-path <name>` at the CLI (CLI overrides config). Tags are written to
+  git as `<path>/v1.4.0`; vergant prints and accepts the short form without the
+  prefix in all output and arguments. The full `--merged` reachability guarantee
+  applies per path — each library's branches see only their own ancestors' tags,
+  and parallel branches within a path remain isolated from each other. The
+  `Repository` interface and all layers above `git.Git` (strategy, tool, branch,
+  version) are path-unaware; path is an infrastructure concern fully encapsulated
+  in `git.Git.WithPath`.
+
+- **Configurable tag prefix strings.** `.vergant.yml` now accepts
+  `releasePrefix`, `candidatePrefix`, and `devPrefix` fields, overriding the
+  defaults (`v`, `c`, `d`). Projects with an existing tag convention can adopt
+  vergant without retagging by matching their convention in config. Configured
+  prefixes are stored on the `Version` value and carried through increment and
+  promote operations so `RenderCategorized` always reflects the configured
+  prefix without threading `Prefixes` through every call site.
+
+- **MIT license.**
 
 - `.vergant.yml` checked in; vergant now manages its own versioning on the 1.x
   release line.
 
 ### Changed
 
-- First public release. `majorVersion` advanced to `1`; the project is
-  considered stable and ready for external use.
+- **Default release prefix changed from `r` to `v`.** The `v`-prefixed
+  convention (`v1.2.3`) is the de facto standard in the Go ecosystem and on
+  GitHub Releases. Projects that used the `r` prefix can restore it with
+  `releasePrefix: r` in `.vergant.yml`. The internal `Release` category
+  constant is unchanged; only the rendered tag prefix is affected.
+
+- First public release on the stable 1.x line. `majorVersion` is `1`.
 
 ---
 
