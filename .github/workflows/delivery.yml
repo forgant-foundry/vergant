@@ -35,10 +35,10 @@ jobs:
         run: echo "tag=$(./vergant new)" >> $GITHUB_OUTPUT
 
       - name: Build release binaries
-        if: startsWith(steps.version.outputs.tag, 'r')
+        if: startsWith(steps.version.outputs.tag, 'v')
         run: |
           VERSION="${{ steps.version.outputs.tag }}"
-          SEM="${VERSION#r}"
+          SEM="${VERSION#v}"
           LDFLAGS="-s -w"
           mkdir -p dist
 
@@ -57,11 +57,11 @@ jobs:
           cd dist && sha256sum *.tar.gz *.zip > "vergant_${SEM}_checksums.txt"
 
       - name: Create release
-        if: startsWith(steps.version.outputs.tag, 'r')
+        if: startsWith(steps.version.outputs.tag, 'v')
         run: |
           VERSION="${{ steps.version.outputs.tag }}"
           gh release create "$VERSION" \
-            --title "${VERSION#r}" \
+            --title "${VERSION#v}" \
             --generate-notes \
             dist/*
         env:
