@@ -34,6 +34,16 @@ communication.
 
 ## [Unreleased]
 
+### Added
+
+- `.vergant.yml` checked in; vergant now manages its own versioning on the 1.x
+  release line.
+
+### Changed
+
+- First public release. `majorVersion` advanced to `1`; the project is
+  considered stable and ready for external use.
+
 ---
 
 ## [0.3.0] — 2026-04-26

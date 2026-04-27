@@ -1,0 +1,6 @@
+majorVersion: 1
+defaultBranch: main
+supportBranchRegEx: ^support\/.*
+devBranchRegEx: ^dev\/(.+)$
+patchBranchRegEx: ^patch\/(.+)$
+mode: release
