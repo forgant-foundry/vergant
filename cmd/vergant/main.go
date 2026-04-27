@@ -27,6 +27,7 @@ Commands:
 Global flags (all commands):
   -config string   config file path (default ".vergant.yml")
   -no-fetch        skip fetching tags from remote
+  -path string     version sequence path for multi-library repos (overrides config)
 
 Command flags:
   new:     -dry-run   print the version without creating or pushing the tag
@@ -58,21 +59,26 @@ func main() {
 	}
 }
 
-// globalFlags registers -config and -no-fetch on fs, which are shared by every
+// globalFlags registers -config, -no-fetch, and -path on fs, which are shared by every
 // subcommand. Each subcommand creates its own FlagSet and calls this so that
 // global flags may appear after the subcommand name: vergant new -config x.json
-func globalFlags(fs *flag.FlagSet) (configFile *string, noFetch *bool) {
+func globalFlags(fs *flag.FlagSet) (configFile *string, noFetch *bool, pathOverride *string) {
 	configFile = fs.String("config", defaultConfigFile, "config file path")
 	noFetch = fs.Bool("no-fetch", false, "skip fetching tags from remote")
+	pathOverride = fs.String("path", "", "version sequence path for multi-library repos (overrides config)")
 	return
 }
 
-func newTool(configFile string) (*tool.VersioningTool, error) {
+func newTool(configFile, pathOverride string) (*tool.VersioningTool, error) {
 	cfg, err := config.Load(configFile)
 	if err != nil {
 		return nil, err
 	}
-	return tool.New(cfg, git.NewGitRepository(".", cfg.Prefixes())), nil
+	path := cfg.Path
+	if pathOverride != "" {
+		path = pathOverride
+	}
+	return tool.New(cfg, git.NewGitRepository(".", cfg.Prefixes()).WithPath(path)), nil
 }
 
 func mayFetch(t *tool.VersioningTool, noFetch bool) error {
@@ -91,10 +97,10 @@ func die(err error) {
 
 func runLastVersion(args []string) {
 	fs := flag.NewFlagSet("last-version", flag.ExitOnError)
-	configFile, noFetch := globalFlags(fs)
+	configFile, noFetch, path := globalFlags(fs)
 	die(fs.Parse(args))
 
-	t, err := newTool(*configFile)
+	t, err := newTool(*configFile, *path)
 	die(err)
 	die(mayFetch(t, *noFetch))
 	v, err := t.LastVersion()
@@ -106,10 +112,10 @@ func runLastVersion(args []string) {
 
 func runLastRelease(args []string) {
 	fs := flag.NewFlagSet("last-release", flag.ExitOnError)
-	configFile, noFetch := globalFlags(fs)
+	configFile, noFetch, path := globalFlags(fs)
 	die(fs.Parse(args))
 
-	t, err := newTool(*configFile)
+	t, err := newTool(*configFile, *path)
 	die(err)
 	die(mayFetch(t, *noFetch))
 	v, err := t.LastRelease()
@@ -121,11 +127,11 @@ func runLastRelease(args []string) {
 
 func runNew(args []string) {
 	fs := flag.NewFlagSet("new", flag.ExitOnError)
-	configFile, noFetch := globalFlags(fs)
+	configFile, noFetch, path := globalFlags(fs)
 	dryRun := fs.Bool("dry-run", false, "calculate version without pushing the tag")
 	die(fs.Parse(args))
 
-	t, err := newTool(*configFile)
+	t, err := newTool(*configFile, *path)
 	die(err)
 	die(mayFetch(t, *noFetch))
 	v, err := t.NewVersion()
@@ -138,7 +144,7 @@ func runNew(args []string) {
 
 func runPromote(args []string) {
 	fs := flag.NewFlagSet("promote", flag.ExitOnError)
-	configFile, noFetch := globalFlags(fs)
+	configFile, noFetch, path := globalFlags(fs)
 	dryRun := fs.Bool("dry-run", false, "calculate version without pushing the tag")
 	die(fs.Parse(args))
 
@@ -147,7 +153,7 @@ func runPromote(args []string) {
 		os.Exit(1)
 	}
 
-	t, err := newTool(*configFile)
+	t, err := newTool(*configFile, *path)
 	die(err)
 	die(mayFetch(t, *noFetch))
 	v, err := t.Promote(fs.Arg(0))
@@ -160,10 +166,10 @@ func runPromote(args []string) {
 
 func runList(args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
-	configFile, noFetch := globalFlags(fs)
+	configFile, noFetch, path := globalFlags(fs)
 	die(fs.Parse(args))
 
-	t, err := newTool(*configFile)
+	t, err := newTool(*configFile, *path)
 	die(err)
 	die(mayFetch(t, *noFetch))
 	tags, err := t.ListTags()

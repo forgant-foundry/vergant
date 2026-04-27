@@ -30,6 +30,7 @@ type Config struct {
 	ReleasePrefix      string // tag prefix for releases; defaults to "v"
 	CandidatePrefix    string // tag prefix for candidates; defaults to "c"
 	DevPrefix          string // tag prefix for dev builds; defaults to "d"
+	Path               string // version sequence path prefix for multi-library repos; empty for default single-sequence behaviour
 }
 
 // Prefixes returns the configured prefix strings, applying defaults for any empty fields.
@@ -132,6 +133,8 @@ func parse(path string, data []byte) (*Config, error) {
 			if value != "" {
 				c.DevPrefix = value
 			}
+		case "path":
+			c.Path = value
 		}
 	}
 	return &c, nil

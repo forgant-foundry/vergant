@@ -25,11 +25,29 @@ type Repository interface {
 type Git struct {
 	dir      string
 	prefixes version.Prefixes
+	path     string
 }
 
 // NewGitRepository returns a Git client rooted at dir using the given tag prefix configuration.
 func NewGitRepository(dir string, p version.Prefixes) *Git {
 	return &Git{dir: dir, prefixes: p}
+}
+
+// WithPath returns a copy of the Git client scoped to a version sequence path.
+// All tag queries and writes are restricted to tags prefixed with path + "/".
+// An empty path restores default single-sequence behaviour.
+func (g *Git) WithPath(path string) *Git {
+	n := *g
+	n.path = path
+	return &n
+}
+
+// fullTagName prepends the path prefix to a version tag name for use in git commands.
+func (g *Git) fullTagName(tag string) string {
+	if g.path == "" {
+		return tag
+	}
+	return g.path + "/" + tag
 }
 
 func (g *Git) run(args ...string) (string, error) {
@@ -58,6 +76,8 @@ func (g *Git) CurrentBranch() (string, error) {
 
 // FindTag searches annotated tags (sorted descending by tag date, including merged ancestors)
 // and returns the first tag matching pattern, or "" if none found.
+// When a path is set, only tags under that path are searched and the path prefix is stripped
+// from the returned tag name.
 func (g *Git) FindTag(pattern string) (string, error) {
 	out, err := g.run("tag", "--list", "--sort=-taggerdate", "--merged")
 	if err != nil {
@@ -70,7 +90,14 @@ func (g *Git) FindTag(pattern string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid tag pattern %q: %w", pattern, err)
 	}
+	prefix := g.path + "/"
 	for _, tag := range strings.Split(out, "\n") {
+		if g.path != "" {
+			if !strings.HasPrefix(tag, prefix) {
+				continue
+			}
+			tag = tag[len(prefix):]
+		}
 		if re.MatchString(tag) {
 			return tag, nil
 		}
@@ -99,7 +126,8 @@ func (g *Git) LastVersionForDevelopment(buildTicket string) (string, error) {
 	return g.FindTag(pattern)
 }
 
-// CurrentTags returns all tags pointing at HEAD.
+// CurrentTags returns all tags pointing at HEAD scoped to the configured path.
+// The path prefix is stripped from returned tag names.
 func (g *Git) CurrentTags() ([]string, error) {
 	out, err := g.run("tag", "--points-at", "HEAD")
 	if err != nil {
@@ -108,10 +136,21 @@ func (g *Git) CurrentTags() ([]string, error) {
 	if out == "" {
 		return nil, nil
 	}
-	return strings.Fields(out), nil
+	if g.path == "" {
+		return strings.Fields(out), nil
+	}
+	prefix := g.path + "/"
+	var filtered []string
+	for _, tag := range strings.Fields(out) {
+		if strings.HasPrefix(tag, prefix) {
+			filtered = append(filtered, tag[len(prefix):])
+		}
+	}
+	return filtered, nil
 }
 
 // ListTags returns all merged tags sorted by tagger date (descending), newline-separated.
+// When a path is set, only tags under that path are listed and the path prefix is stripped.
 func (g *Git) ListTags() (string, error) {
 	cmd := exec.Command("git", "tag", "--list", "--sort=-taggerdate", "--merged")
 	cmd.Dir = g.dir
@@ -122,14 +161,30 @@ func (g *Git) ListTags() (string, error) {
 		}
 		return "", err
 	}
-	return string(out), nil
+	if g.path == "" {
+		return string(out), nil
+	}
+	prefix := g.path + "/"
+	var sb strings.Builder
+	for _, line := range strings.Split(string(out), "\n") {
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, prefix) {
+			sb.WriteString(line[len(prefix):])
+			sb.WriteByte('\n')
+		}
+	}
+	return sb.String(), nil
 }
 
 // TagVersion creates an annotated tag and pushes it to origin.
+// When a path is set, the tag name is prefixed with path + "/".
 func (g *Git) TagVersion(v *version.Version) error {
-	if _, err := g.run("tag", "-a", v.RenderCategorized(), "-m", v.RenderMessage()); err != nil {
+	tagName := g.fullTagName(v.RenderCategorized())
+	if _, err := g.run("tag", "-a", tagName, "-m", v.RenderMessage()); err != nil {
 		return err
 	}
-	_, err := g.run("push", "--tags", "origin", v.RenderCategorized())
+	_, err := g.run("push", "--tags", "origin", tagName)
 	return err
 }

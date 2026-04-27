@@ -38,7 +38,7 @@ vergant promote <ver>   # promote a candidate to release; --dry-run to skip tag
 vergant list            # list all reachable tags
 ```
 
-Global flags: `--config .vergant.yml`, `--no-fetch`
+Global flags: `--config .vergant.yml`, `--no-fetch`, `--path <sequence>`
 
 ## Architecture
 
@@ -69,6 +69,8 @@ Versions carry a single-letter category prefix:
 | `c` | Candidate — proposed release | `c1.4.0` |
 | `d` | Development — in-progress build | `d1.5.0-acme.123.2` |
 
+When a path is configured (see [Multi-Path Versioning](#multi-path-versioning)), these tags are stored in git with a path prefix — e.g. `sockets/r1.4.0` — but vergant always prints and accepts the short form without the prefix.
+
 Promote changes only the prefix (`c` → `r`) on the same commit — it does not recalculate the version number. `CurrentTags` (HEAD-only, not the full reachable set) enforces that promotion is tied to the exact commit being shipped.
 
 ### Branch-Driven Strategy
@@ -95,9 +97,47 @@ patchBranchRegEx: ^support\/.*
 devBranchRegEx: ^dev\/(.+)$
 patchDevBranchRegEx: ^patch\/(.+)$
 mode: release
+path: ""        # omit or leave empty for single-sequence repos
 ```
 
 Missing file or empty path returns defaults. `Load("")` is valid.
+
+### Multi-Path Versioning
+
+A single git log can carry independent version sequences for multiple libraries by setting a `path` on the `Git` client. The path becomes the first segment of every git tag name:
+
+```
+sockets/r1.4.0    http/r1.2.0    ftp/r3.2.2
+```
+
+All three sequences share the same `--merged` reachability guarantee — each library's branch sees only its own ancestors' tags.
+
+**Configuring a path** (two equivalent ways, CLI overrides config):
+
+```yaml
+# .vergant.yml for the sockets library
+path: sockets
+```
+
+```bash
+vergant new --path sockets --dry-run
+```
+
+**How it works at the git layer.** `git.Git` holds an optional `path string`. When set:
+
+- `FindTag` / `ListTags` list all merged tags and filter in Go to those starting with `path + "/"`. The prefix is stripped before the regex pattern is applied and before the tag name is returned, so all callers above the git layer see short names like `r1.4.0`.
+- `CurrentTags` (used by `promote`) similarly filters and strips.
+- `TagVersion` prepends `path + "/"` to the git tag name before creating it.
+
+The `Repository` interface, strategy, tool, and branch layers are entirely unaware of paths. Path is an infrastructure concern fully encapsulated in `git.Git`.
+
+**Integration test coverage** for path scoping lives in `internal/git/git_test.go`:
+
+- `TestPath_VersionsScopedToPath`
+- `TestPath_LastVersionForDevelopmentScoped`
+- `TestPath_CurrentTagsFilteredToPath`
+- `TestPath_ListTagsScopedToPath`
+- `TestPath_ReachabilityRespected`
 
 ### Separation of Calculation and Tagging
 
@@ -148,6 +188,8 @@ Integration test coverage for `--merged` reachability lives in `internal/git/git
 - `TestReachability_ParallelDevBranchesIsolated`
 - `TestReachability_PatchBranchIsolatedFromNewerMainTags`
 - `TestReachability_PatchTagNotVisibleFromMain`
+
+Multi-path scoping tests (also in `internal/git/git_test.go`): see [Multi-Path Versioning](#multi-path-versioning).
 
 Annotated tags are required (`git tag -a`). Lightweight tags do not carry a `taggerdate` and will sort incorrectly.
 

@@ -24,6 +24,9 @@ func TestLoadDefaults(t *testing.T) {
 	if c.Mode != config.ReleaseOnly {
 		t.Errorf("Mode: got %v, want ReleaseOnly", c.Mode)
 	}
+	if c.Path != "" {
+		t.Errorf("Path: got %q, want empty string", c.Path)
+	}
 }
 
 func TestLoadMissingFile(t *testing.T) {
@@ -85,6 +88,27 @@ func TestLoadFromFile(t *testing.T) {
 				}
 				if c.SupportBranchRegEx != `^release\/.*` {
 					t.Errorf("SupportBranchRegEx: got %q", c.SupportBranchRegEx)
+				}
+			},
+		},
+		{
+			name: "path",
+			yaml: map[string]any{"path": "sockets"},
+			check: func(t *testing.T, c *config.Config) {
+				if c.Path != "sockets" {
+					t.Errorf("Path: got %q, want sockets", c.Path)
+				}
+				if c.DefaultBranch != "main" {
+					t.Errorf("defaults preserved: DefaultBranch=%q", c.DefaultBranch)
+				}
+			},
+		},
+		{
+			name: "path empty string clears path",
+			yaml: map[string]any{"path": ""},
+			check: func(t *testing.T, c *config.Config) {
+				if c.Path != "" {
+					t.Errorf("Path: got %q, want empty", c.Path)
 				}
 			},
 		},
