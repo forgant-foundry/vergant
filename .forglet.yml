@@ -2,7 +2,11 @@ name: vergant
 template: go
 module: github.com/forgant-foundry/vergant
 git: true
+license:
+  id: MIT
+  author: Forgant
 github:
   delivery:
+    majorVersion: 1
     kind: binary
     main: ./cmd/vergant
