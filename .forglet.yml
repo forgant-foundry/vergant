@@ -1,2 +1,8 @@
+name: vergant
+template: go
 module: github.com/forgant-foundry/vergant
 git: true
+github:
+  delivery:
+    kind: binary
+    main: ./cmd/vergant
