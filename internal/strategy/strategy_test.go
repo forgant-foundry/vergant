@@ -40,42 +40,42 @@ func TestNewVersionCalculator(t *testing.T) {
 	}{
 		// Scenario 1: main branch
 		// majorVersion > last major → new major release
-		{"main: no prior tags", releaseCfg, mainBranch, "", "", "r2.0.0", false},
-		{"main: prior major below config", releaseCfg, mainBranch, "r1.0.0", "", "r2.0.0", false},
+		{"main: no prior tags", releaseCfg, mainBranch, "", "", "v2.0.0", false},
+		{"main: prior major below config", releaseCfg, mainBranch, "v1.0.0", "", "v2.0.0", false},
 		// majorVersion == last major → increment minor
-		{"main: prior major equals config", releaseCfg, mainBranch, "r2.0.0", "", "r2.1.0", false},
+		{"main: prior major equals config", releaseCfg, mainBranch, "v2.0.0", "", "v2.1.0", false},
 		{"main: candidate mode", candidateCfg, mainBranch, "c2.1.0", "", "c2.2.0", false},
 		// prior major > config → error
-		{"main: prior major above config", releaseCfg, mainBranch, "r3.0.0", "", "", true},
+		{"main: prior major above config", releaseCfg, mainBranch, "v3.0.0", "", "", true},
 
 		// Scenario 2: support/* branch — patch increment only, major never changes
 		{"support: no prior", releaseCfg, supportBranch, "", "", "", true},
-		{"support: increment patch", releaseCfg, supportBranch, "r2.1.0", "", "r2.1.1", false},
-		{"support: consecutive patches", releaseCfg, supportBranch, "r2.1.3", "", "r2.1.4", false},
+		{"support: increment patch", releaseCfg, supportBranch, "v2.1.0", "", "v2.1.1", false},
+		{"support: consecutive patches", releaseCfg, supportBranch, "v2.1.3", "", "v2.1.4", false},
 
 		// Scenario 3: dev/* branch — pre-release targeting next minor (or major if config advances)
 		// No prior release: use config majorVersion as target
 		{"dev: no prior release", releaseCfg, devBranch, "", "", "d2.0.0-acme.123.0", false},
 		// Config majorVersion > lastRelease major: pre-release of new major
-		{"dev: config major advances", &config.Config{MajorVersion: 2, DefaultBranch: "main"}, devBranch, "", "r1.4.0", "d2.0.0-acme.123.0", false},
+		{"dev: config major advances", &config.Config{MajorVersion: 2, DefaultBranch: "main"}, devBranch, "", "v1.4.0", "d2.0.0-acme.123.0", false},
 		// Normal case: pre-release of next minor
-		{"dev: first pre-release", releaseCfg, devBranch, "", "r2.1.0", "d2.2.0-acme.123.0", false},
+		{"dev: first pre-release", releaseCfg, devBranch, "", "v2.1.0", "d2.2.0-acme.123.0", false},
 		// Existing pre-release matches target: increment counter
-		{"dev: increment counter", releaseCfg, devBranch, "d2.2.0-acme.123.2", "r2.1.0", "d2.2.0-acme.123.3", false},
+		{"dev: increment counter", releaseCfg, devBranch, "d2.2.0-acme.123.2", "v2.1.0", "d2.2.0-acme.123.3", false},
 		// Existing pre-release base differs from new target (e.g. after rebase): reset counter
-		{"dev: target changes on rebase", releaseCfg, devBranch, "d2.1.0-acme.123.5", "r2.1.0", "d2.2.0-acme.123.0", false},
+		{"dev: target changes on rebase", releaseCfg, devBranch, "d2.1.0-acme.123.5", "v2.1.0", "d2.2.0-acme.123.0", false},
 		// Config major above lastRelease major: error
-		{"dev: config major below release", &config.Config{MajorVersion: 1, DefaultBranch: "main"}, devBranch, "", "r2.0.0", "", true},
+		{"dev: config major below release", &config.Config{MajorVersion: 1, DefaultBranch: "main"}, devBranch, "", "v2.0.0", "", true},
 
 		// Scenario 4: patch/* branch — pre-release targeting next patch
 		// No prior release: error (nothing to patch)
 		{"patch: no prior release", releaseCfg, patchBranch, "", "", "", true},
 		// Normal case: pre-release of next patch
-		{"patch: first pre-release", releaseCfg, patchBranch, "", "r2.1.0", "d2.1.1-acme.456.0", false},
+		{"patch: first pre-release", releaseCfg, patchBranch, "", "v2.1.0", "d2.1.1-acme.456.0", false},
 		// Existing pre-release matches target: increment counter
-		{"patch: increment counter", releaseCfg, patchBranch, "d2.1.1-acme.456.1", "r2.1.0", "d2.1.1-acme.456.2", false},
+		{"patch: increment counter", releaseCfg, patchBranch, "d2.1.1-acme.456.1", "v2.1.0", "d2.1.1-acme.456.2", false},
 		// Existing pre-release base differs from target: reset counter
-		{"patch: target changes", releaseCfg, patchBranch, "d2.0.1-acme.456.3", "r2.0.1", "d2.0.2-acme.456.0", false},
+		{"patch: target changes", releaseCfg, patchBranch, "d2.0.1-acme.456.3", "v2.0.1", "d2.0.2-acme.456.0", false},
 	}
 
 	for _, tt := range tests {
@@ -117,6 +117,8 @@ func TestNewVersionCalculator(t *testing.T) {
 // --- AcquireLastVersion ---
 
 func TestAcquireLastVersion(t *testing.T) {
+	cfg := &config.Config{DefaultBranch: "main"}
+
 	tests := []struct {
 		name   string
 		stub   *testutil.StubRepository
@@ -126,15 +128,15 @@ func TestAcquireLastVersion(t *testing.T) {
 	}{
 		{
 			name: "main branch returns last version",
-			stub: &testutil.StubRepository{LastVersionVal: "r1.4.0"},
+			stub: &testutil.StubRepository{LastVersionVal: "v1.4.0"},
 			b:    &branch.Branch{Category: branch.Default, Name: "main"},
-			want: "r1.4.0",
+			want: "v1.4.0",
 		},
 		{
 			name: "support branch returns last version",
-			stub: &testutil.StubRepository{LastVersionVal: "r1.4.0"},
+			stub: &testutil.StubRepository{LastVersionVal: "v1.4.0"},
 			b:    &branch.Branch{Category: branch.Support, Name: "support/1.4.x"},
-			want: "r1.4.0",
+			want: "v1.4.0",
 		},
 		{
 			name:   "dev branch calls LastVersionForDevelopment with ticket",
@@ -175,7 +177,7 @@ func TestAcquireLastVersion(t *testing.T) {
 				}
 			}
 
-			v, err := strategy.NewAcquireLastVersion(tt.stub).Resolve(tt.b)()
+			v, err := strategy.NewAcquireLastVersion(tt.stub, cfg).Resolve(tt.b)()
 			if err != nil {
 				t.Fatal(err)
 			}

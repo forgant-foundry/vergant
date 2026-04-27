@@ -23,12 +23,13 @@ type Repository interface {
 
 // Git runs git operations in a specific directory.
 type Git struct {
-	dir string
+	dir      string
+	prefixes version.Prefixes
 }
 
-// NewGitRepository returns a Git client rooted at dir.
-func NewGitRepository(dir string) *Git {
-	return &Git{dir: dir}
+// NewGitRepository returns a Git client rooted at dir using the given tag prefix configuration.
+func NewGitRepository(dir string, p version.Prefixes) *Git {
+	return &Git{dir: dir, prefixes: p}
 }
 
 func (g *Git) run(args ...string) (string, error) {
@@ -77,19 +78,24 @@ func (g *Git) FindTag(pattern string) (string, error) {
 	return "", nil
 }
 
-// LastRelease returns the most recent release tag (e.g. "r1.2.3"), or "".
+// LastRelease returns the most recent release tag (e.g. "v1.2.3"), or "".
 func (g *Git) LastRelease() (string, error) {
-	return g.FindTag(`r\d+\.\d+\.\d+$`)
+	pattern := regexp.QuoteMeta(g.prefixes.Release) + `\d+\.\d+\.\d+$`
+	return g.FindTag(pattern)
 }
 
 // LastVersion returns the most recent release or candidate tag, or "".
 func (g *Git) LastVersion() (string, error) {
-	return g.FindTag(`[cr]\d+\.\d+\.\d+$`)
+	rp := regexp.QuoteMeta(g.prefixes.Release)
+	cp := regexp.QuoteMeta(g.prefixes.Candidate)
+	pattern := fmt.Sprintf(`(?:%s|%s)\d+\.\d+\.\d+$`, rp, cp)
+	return g.FindTag(pattern)
 }
 
 // LastVersionForDevelopment returns the most recent dev tag for buildTicket, or "" if none exists.
 func (g *Git) LastVersionForDevelopment(buildTicket string) (string, error) {
-	pattern := fmt.Sprintf(`d\d+\.\d+\.\d+-%s\.\d+$`, regexp.QuoteMeta(buildTicket))
+	dp := regexp.QuoteMeta(g.prefixes.Dev)
+	pattern := fmt.Sprintf(`%s\d+\.\d+\.\d+-%s\.\d+$`, dp, regexp.QuoteMeta(buildTicket))
 	return g.FindTag(pattern)
 }
 

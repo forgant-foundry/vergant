@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/forgant-foundry/vergant/internal/version"
 )
 
 // WorkflowMode controls whether versions are released directly or through candidates first.
@@ -19,12 +21,30 @@ const (
 
 // Config holds project versioning configuration.
 type Config struct {
-	MajorVersion        int
-	DefaultBranch       string
-	SupportBranchRegEx    string
-	DevBranchRegEx      string
-	PatchBranchRegEx string
-	Mode                WorkflowMode
+	MajorVersion       int
+	DefaultBranch      string
+	SupportBranchRegEx string
+	DevBranchRegEx     string
+	PatchBranchRegEx   string
+	Mode               WorkflowMode
+	ReleasePrefix      string // tag prefix for releases; defaults to "v"
+	CandidatePrefix    string // tag prefix for candidates; defaults to "c"
+	DevPrefix          string // tag prefix for dev builds; defaults to "d"
+}
+
+// Prefixes returns the configured prefix strings, applying defaults for any empty fields.
+func (c *Config) Prefixes() version.Prefixes {
+	p := version.DefaultPrefixes()
+	if c.ReleasePrefix != "" {
+		p.Release = c.ReleasePrefix
+	}
+	if c.CandidatePrefix != "" {
+		p.Candidate = c.CandidatePrefix
+	}
+	if c.DevPrefix != "" {
+		p.Dev = c.DevPrefix
+	}
+	return p
 }
 
 var defaults = Config{
@@ -99,6 +119,18 @@ func parse(path string, data []byte) (*Config, error) {
 				c.Mode = CandidateToRelease
 			case "release":
 				c.Mode = ReleaseOnly
+			}
+		case "releasePrefix":
+			if value != "" {
+				c.ReleasePrefix = value
+			}
+		case "candidatePrefix":
+			if value != "" {
+				c.CandidatePrefix = value
+			}
+		case "devPrefix":
+			if value != "" {
+				c.DevPrefix = value
 			}
 		}
 	}

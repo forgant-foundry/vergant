@@ -32,7 +32,7 @@ func (t *VersioningTool) NewVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	last, err := strategy.NewAcquireLastVersion(t.git).Resolve(b)()
+	last, err := strategy.NewAcquireLastVersion(t.git, t.config).Resolve(b)()
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,11 @@ func (t *VersioningTool) NewVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	return strategy.NewNewVersionCalculator(t.config).Resolve(b)(last, lastRelease)
+	v, err := strategy.NewNewVersionCalculator(t.config).Resolve(b)(last, lastRelease)
+	if err != nil {
+		return nil, err
+	}
+	return v.WithRenderedPrefix(t.config.Prefixes()), nil
 }
 
 // LastVersion returns the most recent release or candidate version, or nil.
@@ -49,7 +53,7 @@ func (t *VersioningTool) LastVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	return strategy.NewAcquireLastVersion(t.git).Resolve(b)()
+	return strategy.NewAcquireLastVersion(t.git, t.config).Resolve(b)()
 }
 
 // LastRelease returns the most recent release version, or nil.
@@ -58,17 +62,18 @@ func (t *VersioningTool) LastRelease() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	return version.Parse(tag)
+	return version.ParseWithPrefixes(tag, t.config.Prefixes())
 }
 
 // Promote returns the release version corresponding to the given candidate string.
 // It does not create the tag; call Tag with the result to apply it.
 func (t *VersioningTool) Promote(v string) (*version.Version, error) {
-	candidate, err := version.CoerceToCandidate(v)
+	p := t.config.Prefixes()
+	candidate, err := version.CoerceToCandidateWithPrefixes(v, p)
 	if err != nil {
 		return nil, err
 	}
-	release := candidate.WithCategory(version.Release)
+	release := candidate.WithCategory(version.Release).WithRenderedPrefix(p)
 
 	tags, err := t.git.CurrentTags()
 	if err != nil {

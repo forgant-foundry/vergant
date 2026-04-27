@@ -16,30 +16,73 @@ const (
 	Dev       Category = "d"
 )
 
+// Prefixes maps each category to its tag prefix string.
+type Prefixes struct {
+	Release   string
+	Candidate string
+	Dev       string
+}
+
+// DefaultPrefixes returns the default prefix configuration: v for release, c for candidate, d for dev.
+func DefaultPrefixes() Prefixes {
+	return Prefixes{Release: "v", Candidate: "c", Dev: "d"}
+}
+
+func (p Prefixes) forCategory(cat Category) string {
+	switch cat {
+	case Release:
+		return p.Release
+	case Candidate:
+		return p.Candidate
+	default:
+		return p.Dev
+	}
+}
+
 // Version is an immutable semantic version with a category prefix.
 type Version struct {
-	major    int
-	minor    int
-	patch    int
-	pre      []string // e.g. ["acme", "123", "0"] for d1.2.3-acme.123.0
-	Category Category
+	major          int
+	minor          int
+	patch          int
+	pre            []string // e.g. ["acme", "123", "0"] for d1.2.3-acme.123.0
+	Category       Category
+	renderedPrefix string // configured prefix to use in RenderCategorized; empty falls back to Category
 }
 
 var semverRe = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$`)
 
-// Parse parses a categorized version string such as "r1.2.3" or "d1.2.3-acme.123.0".
+// Parse parses a categorized version string using the default prefix configuration (v/c/d).
 // Returns nil, nil for an empty string.
+// For custom prefixes, use ParseWithPrefixes.
 func Parse(s string) (*Version, error) {
+	return ParseWithPrefixes(s, DefaultPrefixes())
+}
+
+// ParseWithPrefixes parses a categorized version string using the given prefix configuration.
+// Returns nil, nil for an empty string.
+func ParseWithPrefixes(s string, p Prefixes) (*Version, error) {
 	if s == "" {
 		return nil, nil
 	}
-	cat := Category(s[0:1])
-	switch cat {
-	case Release, Candidate, Dev:
-	default:
-		return nil, fmt.Errorf("found version without expected category prefix of 'r', 'c' or 'd' for release, candidate or dev: %s", s)
+	for _, pair := range []struct {
+		cat    Category
+		prefix string
+	}{
+		{Release, p.Release},
+		{Candidate, p.Candidate},
+		{Dev, p.Dev},
+	} {
+		if strings.HasPrefix(s, pair.prefix) {
+			v, err := parseSemver(s[len(pair.prefix):], pair.cat)
+			if err != nil {
+				return nil, err
+			}
+			v.renderedPrefix = pair.prefix
+			return v, nil
+		}
 	}
-	return parseSemver(s[1:], cat)
+	return nil, fmt.Errorf("found version without expected category prefix of %q, %q or %q for release, candidate or dev: %s",
+		p.Release, p.Candidate, p.Dev, s)
 }
 
 func parseSemver(s string, cat Category) (*Version, error) {
@@ -57,15 +100,32 @@ func parseSemver(s string, cat Category) (*Version, error) {
 	return &Version{major: major, minor: minor, patch: patch, pre: pre, Category: cat}, nil
 }
 
-// CoerceToCandidate accepts "cX.X.X", "rX.X.X", or "X.X.X" and returns a candidate version.
+// CoerceToCandidate accepts a release-prefixed, candidate-prefixed, or bare semver string
+// and returns a candidate version using the default prefix configuration (v/c/d).
+// For custom prefixes, use CoerceToCandidateWithPrefixes.
 func CoerceToCandidate(s string) (*Version, error) {
-	if len(s) > 0 {
-		cat := Category(s[0:1])
-		if cat == Release || cat == Candidate {
-			return parseSemver(s[1:], Candidate)
+	return CoerceToCandidateWithPrefixes(s, DefaultPrefixes())
+}
+
+// CoerceToCandidateWithPrefixes accepts a release-prefixed, candidate-prefixed, or bare semver
+// string and returns a candidate version using the given prefix configuration.
+func CoerceToCandidateWithPrefixes(s string, p Prefixes) (*Version, error) {
+	for _, prefix := range []string{p.Release, p.Candidate} {
+		if strings.HasPrefix(s, prefix) {
+			v, err := parseSemver(s[len(prefix):], Candidate)
+			if err != nil {
+				return nil, err
+			}
+			v.renderedPrefix = p.Candidate
+			return v, nil
 		}
 	}
-	return parseSemver(s, Candidate)
+	v, err := parseSemver(s, Candidate)
+	if err != nil {
+		return nil, err
+	}
+	v.renderedPrefix = p.Candidate
+	return v, nil
 }
 
 // NewMajor returns a new major.0.0 version with the given category.
@@ -98,28 +158,45 @@ func (v *Version) EqualBase(other *Version) bool {
 }
 
 // WithCategory returns the version with a different category, numbers unchanged.
+// Clears the rendered prefix; call WithRenderedPrefix to re-apply one.
 func (v *Version) WithCategory(cat Category) *Version {
 	n := *v
 	n.Category = cat
+	n.renderedPrefix = ""
+	return &n
+}
+
+// WithRenderedPrefix returns the version with its rendered prefix set from p,
+// so that RenderCategorized uses the configured prefix string.
+func (v *Version) WithRenderedPrefix(p Prefixes) *Version {
+	n := *v
+	n.renderedPrefix = p.forCategory(v.Category)
 	return &n
 }
 
 // IncrementMajor returns (major+1).0.0 with the given category.
+// The rendered prefix is carried forward when the category is unchanged.
 func (v *Version) IncrementMajor(cat Category) *Version {
-	return &Version{major: v.major + 1, Category: cat}
+	rp := v.renderedPrefixFor(cat)
+	return &Version{major: v.major + 1, Category: cat, renderedPrefix: rp}
 }
 
 // IncrementMinor returns major.(minor+1).0 with the given category.
+// The rendered prefix is carried forward when the category is unchanged.
 func (v *Version) IncrementMinor(cat Category) *Version {
-	return &Version{major: v.major, minor: v.minor + 1, Category: cat}
+	rp := v.renderedPrefixFor(cat)
+	return &Version{major: v.major, minor: v.minor + 1, Category: cat, renderedPrefix: rp}
 }
 
 // IncrementPatch returns major.minor.(patch+1) with the given category.
+// The rendered prefix is carried forward when the category is unchanged.
 func (v *Version) IncrementPatch(cat Category) *Version {
-	return &Version{major: v.major, minor: v.minor, patch: v.patch + 1, Category: cat}
+	rp := v.renderedPrefixFor(cat)
+	return &Version{major: v.major, minor: v.minor, patch: v.patch + 1, Category: cat, renderedPrefix: rp}
 }
 
 // IncrementPreRelease returns the dev version with the trailing build counter incremented.
+// The rendered prefix is carried forward.
 func (v *Version) IncrementPreRelease() *Version {
 	if len(v.pre) == 0 {
 		return v
@@ -128,11 +205,23 @@ func (v *Version) IncrementPreRelease() *Version {
 	copy(parts, v.pre)
 	n, _ := strconv.Atoi(parts[len(parts)-1])
 	parts[len(parts)-1] = strconv.Itoa(n + 1)
-	return &Version{major: v.major, minor: v.minor, patch: v.patch, pre: parts, Category: Dev}
+	return &Version{major: v.major, minor: v.minor, patch: v.patch, pre: parts, Category: Dev, renderedPrefix: v.renderedPrefix}
 }
 
-// RenderCategorized returns the full version string with category prefix, e.g. "r1.2.3".
+func (v *Version) renderedPrefixFor(cat Category) string {
+	if cat == v.Category {
+		return v.renderedPrefix
+	}
+	return ""
+}
+
+// RenderCategorized returns the full version string with the prefix.
+// Uses the rendered prefix set by ParseWithPrefixes or WithRenderedPrefix; falls back to the
+// internal Category identifier (r/c/d) when no rendered prefix has been set.
 func (v *Version) RenderCategorized() string {
+	if v.renderedPrefix != "" {
+		return v.renderedPrefix + v.renderSemver()
+	}
 	return string(v.Category) + v.renderSemver()
 }
 

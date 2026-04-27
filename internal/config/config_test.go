@@ -102,6 +102,32 @@ func TestLoadFromFile(t *testing.T) {
 	}
 }
 
+func TestPrefixes(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		c, _ := config.Load("")
+		p := c.Prefixes()
+		if p.Release != "v" || p.Candidate != "c" || p.Dev != "d" {
+			t.Errorf("default prefixes: got %q/%q/%q, want v/c/d", p.Release, p.Candidate, p.Dev)
+		}
+	})
+
+	t.Run("overrides from file", func(t *testing.T) {
+		path := writeYAML(t, map[string]any{
+			"releasePrefix":   "r",
+			"candidatePrefix": "rc",
+			"devPrefix":       "dev-",
+		})
+		c, err := config.Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := c.Prefixes()
+		if p.Release != "r" || p.Candidate != "rc" || p.Dev != "dev-" {
+			t.Errorf("overridden prefixes: got %q/%q/%q, want r/rc/dev-", p.Release, p.Candidate, p.Dev)
+		}
+	})
+}
+
 func TestLoadInvalidYAML(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bad.yml")
 	if err := os.WriteFile(path, []byte("not valid yaml\n"), 0644); err != nil {

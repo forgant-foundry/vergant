@@ -17,11 +17,12 @@ type Calculate func(last *version.Version, lastRelease *version.Version) (*versi
 
 // AcquireLastVersion fetches the last known version from git tags.
 type AcquireLastVersion struct {
-	git git.Repository
+	git    git.Repository
+	config *config.Config
 }
 
-func NewAcquireLastVersion(g git.Repository) *AcquireLastVersion {
-	return &AcquireLastVersion{git: g}
+func NewAcquireLastVersion(g git.Repository, cfg *config.Config) *AcquireLastVersion {
+	return &AcquireLastVersion{git: g, config: cfg}
 }
 
 // Resolve returns an Acquire function appropriate for b.
@@ -39,7 +40,7 @@ func (a *AcquireLastVersion) acquireLastVersion() (*version.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	return version.Parse(tag)
+	return version.ParseWithPrefixes(tag, a.config.Prefixes())
 }
 
 func (a *AcquireLastVersion) acquireLastVersionForDevelopment(buildTicket string) Acquire {
@@ -48,7 +49,7 @@ func (a *AcquireLastVersion) acquireLastVersionForDevelopment(buildTicket string
 		if err != nil {
 			return nil, err
 		}
-		return version.Parse(tag)
+		return version.ParseWithPrefixes(tag, a.config.Prefixes())
 	}
 }
 
@@ -69,20 +70,30 @@ func (c *NewVersionCalculator) defaultCategory() version.Category {
 }
 
 // Resolve returns a Calculate function appropriate for b.
+// The returned function stamps the configured prefix onto every version it produces.
 func (c *NewVersionCalculator) Resolve(b *branch.Branch) Calculate {
+	var inner Calculate
 	switch b.Category {
 	case branch.Default:
-		return c.onDefault
+		inner = c.onDefault
 	case branch.Support:
-		return c.onSupport
+		inner = c.onSupport
 	case branch.Dev:
-		return c.onDev(b)
+		inner = c.onDev(b)
 	case branch.Patch:
-		return c.onPatch(b)
+		inner = c.onPatch(b)
 	default:
 		return func(_ *version.Version, _ *version.Version) (*version.Version, error) {
 			return nil, fmt.Errorf("unsupported branch category")
 		}
+	}
+	p := c.config.Prefixes()
+	return func(last, lastRelease *version.Version) (*version.Version, error) {
+		v, err := inner(last, lastRelease)
+		if err != nil {
+			return nil, err
+		}
+		return v.WithRenderedPrefix(p), nil
 	}
 }
 

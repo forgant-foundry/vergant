@@ -24,14 +24,14 @@ func defaultConfig() *config.Config {
 func TestNewVersion(t *testing.T) {
 	stub := &testutil.StubRepository{
 		CurrentBranchVal: "main",
-		LastVersionVal:   "r1.2.0",
+		LastVersionVal:   "v1.2.0",
 	}
 	v, err := tool.New(defaultConfig(), stub).NewVersion()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := v.RenderCategorized(); got != "r1.3.0" {
-		t.Errorf("got %q, want r1.3.0", got)
+	if got := v.RenderCategorized(); got != "v1.3.0" {
+		t.Errorf("got %q, want v1.3.0", got)
 	}
 }
 
@@ -39,13 +39,13 @@ func TestNewVersionDevBranch(t *testing.T) {
 	stub := &testutil.StubRepository{
 		CurrentBranchVal:     "dev/acme-123",
 		LastVersionForDevVal: "d1.3.0-acme.123.0",
-		LastReleaseVal:       "r1.2.0",
+		LastReleaseVal:       "v1.2.0",
 	}
 	v, err := tool.New(defaultConfig(), stub).NewVersion()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// last release r1.2.0 + minor = r1.3.0; last dev base matches target → increment counter
+	// last release v1.2.0 + minor = v1.3.0; last dev base matches target → increment counter
 	if got := v.RenderCategorized(); got != "d1.3.0-acme.123.1" {
 		t.Errorf("got %q, want d1.3.0-acme.123.1", got)
 	}
@@ -55,26 +55,26 @@ func TestNewVersionPatchDevBranch(t *testing.T) {
 	stub := &testutil.StubRepository{
 		CurrentBranchVal:     "patch/acme-456",
 		LastVersionForDevVal: "",
-		LastReleaseVal:       "r1.2.0",
+		LastReleaseVal:       "v1.2.0",
 	}
 	v, err := tool.New(defaultConfig(), stub).NewVersion()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// last release r1.2.0 + patch = r1.2.1; no existing pre-release → start at 0
+	// last release v1.2.0 + patch = v1.2.1; no existing pre-release → start at 0
 	if got := v.RenderCategorized(); got != "d1.2.1-acme.456.0" {
 		t.Errorf("got %q, want d1.2.1-acme.456.0", got)
 	}
 }
 
 func TestLastRelease(t *testing.T) {
-	stub := &testutil.StubRepository{LastReleaseVal: "r1.1.0"}
+	stub := &testutil.StubRepository{LastReleaseVal: "v1.1.0"}
 	v, err := tool.New(defaultConfig(), stub).LastRelease()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := v.RenderCategorized(); got != "r1.1.0" {
-		t.Errorf("got %q, want r1.1.0", got)
+	if got := v.RenderCategorized(); got != "v1.1.0" {
+		t.Errorf("got %q, want v1.1.0", got)
 	}
 }
 
@@ -90,18 +90,18 @@ func TestPromote(t *testing.T) {
 			name:        "candidate present",
 			input:       "c1.2.0",
 			currentTags: []string{"c1.2.0"},
-			want:        "r1.2.0",
+			want:        "v1.2.0",
 		},
 		{
 			name:        "bare version coerced",
 			input:       "1.2.0",
 			currentTags: []string{"c1.2.0"},
-			want:        "r1.2.0",
+			want:        "v1.2.0",
 		},
 		{
 			name:        "release already exists",
 			input:       "c1.2.0",
-			currentTags: []string{"c1.2.0", "r1.2.0"},
+			currentTags: []string{"c1.2.0", "v1.2.0"},
 			wantErr:     "already exists",
 		},
 		{
@@ -137,22 +137,22 @@ func TestPromote(t *testing.T) {
 
 func TestTag(t *testing.T) {
 	stub := &testutil.StubRepository{}
-	v, _ := version.Parse("r1.3.0")
+	v, _ := version.Parse("v1.3.0")
 	if err := tool.New(defaultConfig(), stub).Tag(v); err != nil {
 		t.Fatal(err)
 	}
-	if len(stub.Tagged) != 1 || stub.Tagged[0].RenderCategorized() != "r1.3.0" {
+	if len(stub.Tagged) != 1 || stub.Tagged[0].RenderCategorized() != "v1.3.0" {
 		t.Errorf("tagged versions: %v", stub.Tagged)
 	}
 }
 
 func TestListTags(t *testing.T) {
-	stub := &testutil.StubRepository{ListTagsVal: "r1.1.0\nr1.0.0\n"}
+	stub := &testutil.StubRepository{ListTagsVal: "v1.1.0\nv1.0.0\n"}
 	got, err := tool.New(defaultConfig(), stub).ListTags()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "r1.1.0\nr1.0.0\n" {
+	if got != "v1.1.0\nv1.0.0\n" {
 		t.Errorf("got %q", got)
 	}
 }

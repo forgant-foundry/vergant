@@ -15,11 +15,11 @@ func TestParse(t *testing.T) {
 		wantErr bool
 	}{
 		{input: "", wantNil: true},
-		{input: "r1.2.3", wantCat: version.Release, wantRaw: "r1.2.3"},
+		{input: "v1.2.3", wantCat: version.Release, wantRaw: "v1.2.3"},
 		{input: "c1.2.3", wantCat: version.Candidate, wantRaw: "c1.2.3"},
 		{input: "d1.2.3-asdf.123.0", wantCat: version.Dev, wantRaw: "d1.2.3-asdf.123.0"},
-		{input: "v1.2.3", wantErr: true},
-		{input: "rnot-a-version", wantErr: true},
+		{input: "r1.2.3", wantErr: true},
+		{input: "vnot-a-version", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -50,7 +50,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseFields(t *testing.T) {
-	v := mustParse(t, "r1.2.3")
+	v := mustParse(t, "v1.2.3")
 	if v.Major() != 1 || v.Minor() != 2 || v.Patch() != 3 {
 		t.Errorf("got %d.%d.%d, want 1.2.3", v.Major(), v.Minor(), v.Patch())
 	}
@@ -70,7 +70,7 @@ func TestCoerceToCandidate(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{input: "r1.2.3", want: "c1.2.3"},
+		{input: "v1.2.3", want: "c1.2.3"},
 		{input: "c1.2.3", want: "c1.2.3"},
 		{input: "1.2.3", want: "c1.2.3"},
 		{input: "asdf", wantErr: true},
@@ -102,7 +102,7 @@ func TestNewMajor(t *testing.T) {
 }
 
 func TestNewPreRelease(t *testing.T) {
-	target := mustParse(t, "r1.3.0")
+	target := mustParse(t, "v1.3.0")
 	v := version.NewPreRelease(target, "asdf.123")
 	if got := v.RenderCategorized(); got != "d1.3.0-asdf.123.0" {
 		t.Errorf("got %q, want d1.3.0-asdf.123.0", got)
@@ -110,15 +110,15 @@ func TestNewPreRelease(t *testing.T) {
 }
 
 func TestIncrements(t *testing.T) {
-	r := mustParse(t, "r1.2.3")
+	r := mustParse(t, "v1.2.3")
 	tests := []struct {
 		name string
 		got  string
 		want string
 	}{
-		{"major", r.IncrementMajor(version.Release).RenderCategorized(), "r2.0.0"},
-		{"minor", r.IncrementMinor(version.Release).RenderCategorized(), "r1.3.0"},
-		{"patch", r.IncrementPatch(version.Release).RenderCategorized(), "r1.2.4"},
+		{"major", r.IncrementMajor(version.Release).RenderCategorized(), "v2.0.0"},
+		{"minor", r.IncrementMinor(version.Release).RenderCategorized(), "v1.3.0"},
+		{"patch", r.IncrementPatch(version.Release).RenderCategorized(), "v1.2.4"},
 		{"category", r.WithCategory(version.Candidate).RenderCategorized(), "c1.2.3"},
 	}
 	for _, tt := range tests {
@@ -142,7 +142,7 @@ func TestRenderMessage(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"r1.2.3", "release 1.2.3"},
+		{"v1.2.3", "release 1.2.3"},
 		{"c1.2.3", "candidate 1.2.3"},
 		{"d1.2.3-asdf.123.2", "development 1.2.3-asdf.123.2"},
 	}
@@ -153,6 +153,50 @@ func TestRenderMessage(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseWithPrefixes(t *testing.T) {
+	p := version.Prefixes{Release: "v", Candidate: "c", Dev: "d"}
+	tests := []struct {
+		input   string
+		wantCat version.Category
+		wantRaw string
+		wantErr bool
+	}{
+		{input: "v1.2.3", wantCat: version.Release, wantRaw: "v1.2.3"},
+		{input: "c1.2.3", wantCat: version.Candidate, wantRaw: "c1.2.3"},
+		{input: "d1.2.3-acme.1.0", wantCat: version.Dev, wantRaw: "d1.2.3-acme.1.0"},
+		{input: "r1.2.3", wantErr: true},
+		{input: "x1.2.3", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			v, err := version.ParseWithPrefixes(tt.input, p)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if v.Category != tt.wantCat {
+				t.Errorf("category: got %q, want %q", v.Category, tt.wantCat)
+			}
+			if v.RenderCategorized() != tt.wantRaw {
+				t.Errorf("render: got %q, want %q", v.RenderCategorized(), tt.wantRaw)
+			}
+		})
+	}
+}
+
+func TestWithRenderedPrefix(t *testing.T) {
+	p := version.Prefixes{Release: "v", Candidate: "c", Dev: "d"}
+	v := version.NewMajor(1, version.Release)
+	if got := v.WithRenderedPrefix(p).RenderCategorized(); got != "v1.0.0" {
+		t.Errorf("got %q, want v1.0.0", got)
 	}
 }
 
